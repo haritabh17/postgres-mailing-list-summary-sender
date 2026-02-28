@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Website Mockup - Summary Detail</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(135deg, #eff6ff, #dbeafe); min-height: 100vh; padding: 32px; }
+  .container { max-width: 800px; margin: 0 auto; }
+  .back { color: #2563eb; font-size: 14px; margin-bottom: 16px; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+  .card { background: white; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: hidden; }
+  .header-bar { background: linear-gradient(90deg, #2563eb, #1d4ed8); color: white; padding: 28px 32px; }
+  .header-bar h2 { font-size: 22px; margin-bottom: 8px; }
+  .meta { display: flex; gap: 24px; font-size: 14px; opacity: 0.85; }
+  .content { padding: 32px; }
+  .overview { color: #374151; line-height: 1.7; margin-bottom: 28px; font-size: 15px; }
+  
+  .discussion { border-bottom: 1px solid #e5e7eb; padding-bottom: 24px; margin-bottom: 24px; }
+  .discussion:last-child { border-bottom: none; margin-bottom: 0; }
+  .discussion h3 { color: #1e40af; font-size: 17px; margin-bottom: 10px; }
+  .discussion-meta { display: flex; gap: 16px; font-size: 13px; color: #6b7280; margin-bottom: 8px; }
+  .tags { display: flex; gap: 6px; margin: 10px 0; flex-wrap: wrap; }
+  .tag { padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+  .tag-cf { background: #1a5fb4; color: white; }
+  .tag-ai { background: #f3f4f6; color: #1f2937; border: 1px dashed #d1d5db; }
+  
+  .summary-text { color: #374151; line-height: 1.7; font-size: 14.5px; text-align: justify; }
+  .summary-brief { }
+  .summary-detailed { display: none; }
+  .summary-deep { display: none; }
+  
+  .show-more-btn { 
+    background: none; border: none; color: #2563eb; font-size: 13px; font-weight: 500;
+    cursor: pointer; padding: 6px 0; margin-top: 8px; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .show-more-btn:hover { text-decoration: underline; }
+  
+  .show-less-btn {
+    background: none; border: none; color: #6b7280; font-size: 13px; font-weight: 500;
+    cursor: pointer; padding: 6px 0; margin-top: 8px; display: inline-flex; align-items: center; gap: 4px;
+  }
+  .show-less-btn:hover { text-decoration: underline; }
+  
+  /* State: expanded to detailed */
+  .discussion.level-detailed .summary-brief { display: none; }
+  .discussion.level-detailed .summary-detailed { display: block; }
+  .discussion.level-detailed .summary-deep { display: none; }
+  
+  /* State: expanded to deep */
+  .discussion.level-deep .summary-brief { display: none; }
+  .discussion.level-deep .summary-detailed { display: none; }
+  .discussion.level-deep .summary-deep { display: block; }
+</style>
+</head>
+<body>
+<div class="container">
+  <a href="#" class="back">← Back to Home</a>
+  
+  <div class="card">
+    <div class="header-bar">
+      <h2>Week of 27th Feb 2026</h2>
+      <div class="meta">
+        <span>📅 Generated Feb 27, 2026</span>
+        <span>💬 610 posts</span>
+        <span>👥 129 participants</span>
+      </div>
+    </div>
+    
+    <div class="content">
+      <p class="overview"><strong>Overview</strong> — This week saw 610 posts from 129 participants covering protocol changes, replication improvements, SIMD parsing, and tuple deformation speedups.</p>
+      
+      <h2 style="font-size: 20px; color: #1e40af; margin-bottom: 20px;">Top Discussions</h2>
+      
+      <!-- Discussion 1: Brief (default) -->
+      <div class="discussion" id="discussion-1">
+        <h3>1. Re: Skipping schema changes in publication</h3>
+        <div class="discussion-meta">
+          <span>24 posts</span>
+          <span>9 participants</span>
+          <span>Feb 20 – Feb 26</span>
+          <a href="#" style="color: #2563eb; text-decoration: none;">View Thread →</a>
+        </div>
+        <div class="tags">
+          <span class="tag tag-ai">Backport</span>
+          <span class="tag tag-ai">Refactoring Only</span>
+        </div>
+        <div class="summary-text summary-brief">
+          The discussion revolves around enhancing CREATE PUBLICATION...EXCEPT TABLE syntax. Participants provided feedback on code changes, syntax improvements, and optimization opportunities for the publication_has_any_except_table function.
+        </div>
+        <div class="summary-text summary-detailed">
+          The discussion revolves around enhancing CREATE PUBLICATION...EXCEPT TABLE syntax. Participants provided feedback on code changes, syntax improvements, and optimization opportunities for the publication_has_any_except_table function. Specific technical details were highlighted, such as the optional TABLE keyword in the EXCEPT clause and the need for clarity in identifying object types when supporting sequences. Optimization suggestions included caching relation lookups and reducing redundant list traversals. Error message improvements were proposed to better distinguish between missing and excluded tables.
+        </div>
+        <div class="summary-text summary-deep">
+          The discussion revolves around enhancing CREATE PUBLICATION...EXCEPT TABLE syntax. Participants provided feedback on code changes, syntax improvements, and optimization opportunities for the publication_has_any_except_table function. Specific technical details were highlighted, such as the optional TABLE keyword in the EXCEPT clause and the need for clarity in identifying object types when supporting sequences. Optimization suggestions included caching relation lookups and reducing redundant list traversals. Error message improvements were proposed to better distinguish between missing and excluded tables. Consensus was reached on keeping TABLE as non-optional in syntax and adding INHERITS tests for replication scenarios. Memory management discussions focused on ensuring proper freeing of relation name lists after publication checks. The patch went through multiple rounds of review with attention to edge cases around schema-qualified names and the interaction with row filters. Performance benchmarks showed the optimized function reducing lookup time from O(n²) to O(n log n) for publications with large exclusion lists.
+        </div>
+        <button class="show-more-btn" onclick="expandDiscussion(this, 1)">▼ Show more</button>
+        <button class="show-less-btn" style="display:none;" onclick="collapseDiscussion(this, 1)">▲ Show less</button>
+      </div>
+      
+      <!-- Discussion 2: Already expanded to detailed -->
+      <div class="discussion level-detailed" id="discussion-2">
+        <h3>2. Re: libpq: Grease the protocol by default</h3>
+        <div class="discussion-meta">
+          <span>24 posts</span>
+          <span>5 participants</span>
+          <span>Feb 24 – Feb 25</span>
+          <a href="#" style="color: #2563eb; text-decoration: none;">View Thread →</a>
+        </div>
+        <div class="tags">
+          <span class="tag tag-ai">Bugfix</span>
+          <span class="tag tag-ai">Backport</span>
+          <span class="tag tag-ai">libpq</span>
+        </div>
+        <div class="summary-text summary-brief">
+          The discussion revolves around fixing the connection protocol issue during upgrades, specifically related to pg_upgrade between different PostgreSQL versions and the max_protocol_version connection option.
+        </div>
+        <div class="summary-text summary-detailed">
+          The discussion revolves around fixing the connection protocol issue during upgrades, specifically related to pg_upgrade between different PostgreSQL versions. Tom Lane and Jacob Champion discuss adding the max_protocol_version connection option to address unsupported frontend protocol version errors. Jacob proposes fixing pg_upgrade directly rather than the test script, emphasizing importance for future protocol version changes. Further refinements handle different PostgreSQL versions and libpq versions, ensuring compatibility and avoiding regressions. Tom confirms successful testing with the updated patch.
+        </div>
+        <div class="summary-text summary-deep">
+          The discussion revolves around fixing the connection protocol issue during upgrades, specifically related to pg_upgrade between different PostgreSQL versions. Tom Lane and Jacob Champion discuss adding the max_protocol_version connection option to address unsupported frontend protocol version errors. Jacob proposes fixing pg_upgrade directly rather than the test script, emphasizing importance for future protocol version changes. Further refinements handle different PostgreSQL versions and libpq versions, ensuring compatibility and avoiding regressions. Tom confirms successful testing with the updated patch. Álvaro Herrera suggests a systematic approach to typo fixes across multiple branches. The deeper technical consideration involves how libpq negotiates protocol versions and the fallback behavior when a newer client connects to an older server. The patch ensures PQERROR_PROTOCOL_VERSION is properly handled in pg_upgrade's connection setup, with environment variables dropped promptly after use to prevent leaking into child processes.
+        </div>
+        <button class="show-more-btn" onclick="expandDiscussion(this, 2)">▼ Show more</button>
+        <button class="show-less-btn" onclick="collapseDiscussion(this, 2)">▲ Show less</button>
+      </div>
+
+      <!-- Discussion 3: Brief -->
+      <div class="discussion" id="discussion-3">
+        <h3>3. Speed up COPY FROM text/CSV parsing using SIMD</h3>
+        <div class="discussion-meta">
+          <span>17 posts</span>
+          <span>4 participants</span>
+          <span>Feb 20 – Feb 26</span>
+          <a href="#" style="color: #2563eb; text-decoration: none;">View Thread →</a>
+        </div>
+        <div class="tags">
+          <span class="tag tag-cf">Performance</span>
+        </div>
+        <div class="summary-text summary-brief">
+          Participants conducted benchmarks comparing SIMD optimization patches for text/CSV parsing. Regressions were observed with wide rows and CSV data, with debates on inlining trade-offs and acceptable regression levels during development.
+        </div>
+        <div class="summary-text summary-detailed" style="display:none;"><!-- detailed --></div>
+        <button class="show-more-btn" onclick="expandDiscussion(this, 3)">▼ Show more</button>
+        <button class="show-less-btn" style="display:none;" onclick="collapseDiscussion(this, 3)">▲ Show less</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function expandDiscussion(btn, num) {
+  const disc = document.getElementById('discussion-' + num);
+  const showLess = disc.querySelector('.show-less-btn');
+  
+  if (disc.classList.contains('level-detailed')) {
+    disc.classList.remove('level-detailed');
+    disc.classList.add('level-deep');
+    btn.style.display = 'none';
+    showLess.style.display = 'inline-flex';
+  } else {
+    disc.classList.add('level-detailed');
+    btn.textContent = '▼ Show more';
+    showLess.style.display = 'inline-flex';
+  }
+}
+
+function collapseDiscussion(btn, num) {
+  const disc = document.getElementById('discussion-' + num);
+  const showMore = disc.querySelector('.show-more-btn');
+  disc.classList.remove('level-detailed', 'level-deep');
+  showMore.style.display = 'inline-flex';
+  showMore.textContent = '▼ Show more';
+  btn.style.display = 'none';
+}
+</script>
+</body>
+</html>

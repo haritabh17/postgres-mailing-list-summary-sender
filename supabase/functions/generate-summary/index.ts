@@ -426,7 +426,7 @@ async function generateAISummary(discussions: TopDiscussion[], stats: any, start
       if (aiTags.length > 0) {
         console.log(`🤖 INFO: AI generated ${aiTags.length} tags: ${aiTags.join(', ')}`)
       }
-      console.log(`✅ INFO: Summary generated for discussion ${i + 1} (${discussionSummary.length} chars)`)
+      console.log(`✅ INFO: Summary generated for discussion ${i + 1} (${summary_brief.length} chars brief, ${summary_detailed.length} chars detailed, ${summary_deep.length} chars deep)`)
     }
     
     console.log(`✅ INFO: Generated ${individualSummaries.length} individual summaries`)

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email Mockup</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f3f4f6; padding: 32px; }
+  
+  /* Email client chrome */
+  .email-chrome { max-width: 700px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); overflow: hidden; }
+  .email-toolbar { background: #f9fafb; border-bottom: 1px solid #e5e7eb; padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
+  .email-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .email-dot.r { background: #ef4444; }
+  .email-dot.y { background: #f59e0b; }
+  .email-dot.g { background: #22c55e; }
+  .email-subject-bar { flex: 1; text-align: center; font-size: 13px; color: #6b7280; }
+  
+  .email-header { padding: 16px 24px; border-bottom: 1px solid #f3f4f6; }
+  .email-from { font-size: 14px; color: #111; font-weight: 600; }
+  .email-to { font-size: 12px; color: #6b7280; }
+  .email-subject { font-size: 13px; color: #111; font-weight: 600; margin-top: 4px; }
+  
+  .email-body { padding: 24px; }
+  
+  /* Email content styling */
+  .email-banner { background: linear-gradient(90deg, #2563eb, #1d4ed8); color: white; padding: 24px; border-radius: 8px; margin-bottom: 24px; text-align: center; }
+  .email-banner h1 { font-size: 20px; margin-bottom: 6px; }
+  .email-banner p { font-size: 13px; opacity: 0.85; }
+  
+  .email-overview { color: #374151; font-size: 14px; line-height: 1.6; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb; }
+  
+  .email-discussion { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #f3f4f6; }
+  .email-discussion:last-child { border-bottom: none; }
+  .email-discussion h3 { color: #1e40af; font-size: 15px; margin-bottom: 6px; }
+  .email-discussion-meta { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
+  .email-tags { margin: 6px 0; }
+  .email-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500; margin-right: 4px; }
+  .email-tag-cf { background: #1a5fb4; color: white; }
+  .email-tag-ai { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+  
+  .email-summary { color: #374151; font-size: 13.5px; line-height: 1.6; margin-bottom: 8px; }
+  
+  .email-show-more {
+    display: inline-block;
+    color: #2563eb;
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    padding: 4px 0;
+  }
+  .email-show-more:hover { text-decoration: underline; }
+  
+  .email-footer { background: #f9fafb; padding: 20px 24px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; }
+  .email-footer a { color: #6b7280; }
+</style>
+</head>
+<body>
+
+<div class="email-chrome">
+  <div class="email-toolbar">
+    <div class="email-dot r"></div>
+    <div class="email-dot y"></div>
+    <div class="email-dot g"></div>
+    <div class="email-subject-bar">PostgreSQL Hackers Digest — Week of 27th Feb 2026</div>
+  </div>
+  
+  <div class="email-header">
+    <div class="email-from">PostgreSQL Hackers Digest &lt;digest@postgreshackersdigest.dev&gt;</div>
+    <div class="email-to">to me</div>
+    <div class="email-subject">📬 PostgreSQL Weekly Summary — Week of 27th Feb 2026</div>
+  </div>
+  
+  <div class="email-body">
+    <div class="email-banner">
+      <h1>PostgreSQL Weekly Summary</h1>
+      <p>Week of 27th Feb 2026 · 610 posts · 129 participants</p>
+    </div>
+    
+    <div class="email-overview">
+      This week saw 610 posts from 129 participants covering protocol changes, replication improvements, SIMD parsing optimizations, and tuple deformation speedups.
+    </div>
+    
+    <!-- Discussion 1 -->
+    <div class="email-discussion">
+      <h3>1. Re: Skipping schema changes in publication</h3>
+      <div class="email-discussion-meta">24 posts · 9 participants · Feb 20 – Feb 26</div>
+      <div class="email-tags">
+        <span class="email-tag email-tag-ai">Backport</span>
+        <span class="email-tag email-tag-ai">Refactoring Only</span>
+      </div>
+      <div class="email-summary">
+        The discussion revolves around enhancing CREATE PUBLICATION...EXCEPT TABLE syntax. Participants provided feedback on code changes, syntax improvements, and optimization opportunities for the publication_has_any_except_table function.
+      </div>
+      <a href="#" class="email-show-more">Read more on website →</a>
+    </div>
+    
+    <!-- Discussion 2 -->
+    <div class="email-discussion">
+      <h3>2. Re: libpq: Grease the protocol by default</h3>
+      <div class="email-discussion-meta">24 posts · 5 participants · Feb 24 – Feb 25</div>
+      <div class="email-tags">
+        <span class="email-tag email-tag-ai">Bugfix</span>
+        <span class="email-tag email-tag-ai">Backport</span>
+        <span class="email-tag email-tag-ai">libpq</span>
+      </div>
+      <div class="email-summary">
+        The discussion revolves around fixing the connection protocol issue during upgrades, specifically related to pg_upgrade between different PostgreSQL versions and the max_protocol_version connection option.
+      </div>
+      <a href="#" class="email-show-more">Read more on website →</a>
+    </div>
+    
+    <!-- Discussion 3 -->
+    <div class="email-discussion">
+      <h3>3. Speed up COPY FROM text/CSV parsing using SIMD</h3>
+      <div class="email-discussion-meta">17 posts · 4 participants · Feb 20 – Feb 26</div>
+      <div class="email-tags">
+        <span class="email-tag email-tag-cf">Performance</span>
+      </div>
+      <div class="email-summary">
+        Participants conducted benchmarks comparing SIMD optimization patches for text/CSV parsing. Regressions were observed with wide rows and CSV data, with debates on inlining trade-offs and acceptable regression levels.
+      </div>
+      <a href="#" class="email-show-more">Read more on website →</a>
+    </div>
+    
+    <!-- Discussion 4 -->
+    <div class="email-discussion">
+      <h3>4. More speedups for tuple deformation</h3>
+      <div class="email-discussion-meta">18 posts · 6 participants · Feb 24 – Feb 26</div>
+      <div class="email-tags">
+        <span class="email-tag email-tag-cf">Performance</span>
+      </div>
+      <div class="email-summary">
+        David Rowley shared an updated patch with optimizations like directly using pg_rightmost_one_pos32() and reducing CompactAttribute to 8 bytes. Andres Freund identified minor regressions due to unnecessary stack operations.
+      </div>
+      <a href="#" class="email-show-more">Read more on website →</a>
+    </div>
+  </div>
+  
+  <div class="email-footer">
+    <p>You're receiving this because you subscribed at postgreshackersdigest.dev</p>
+    <p style="margin-top: 4px;"><a href="#">Unsubscribe</a> · <a href="#">View on website</a></p>
+  </div>
+</div>
+
+</body>
+</html>
