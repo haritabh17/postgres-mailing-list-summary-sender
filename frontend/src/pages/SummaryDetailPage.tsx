@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useSummary } from '../hooks/useSummary';
-import { ArrowLeft, CalendarDays, Users, MessageSquare, Loader2, FileText } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Users, MessageSquare, Loader2, FileText, Link as LinkIcon, Twitter, Linkedin, Check } from 'lucide-react';
 import { markdownToHtml } from '../utils/markdown';
 
 type SummaryLevel = 'brief' | 'detailed' | 'deep';
@@ -162,6 +162,37 @@ function extractOverview(summaryContent: string): string {
   return overview;
 }
 
+function ShareBar({ id, totalPosts, totalParticipants }: { id: string; totalPosts: number; totalParticipants: number }) {
+  const [copied, setCopied] = useState(false);
+  const shareUrl = `https://www.postgreshackersdigest.dev/summary/${id}`;
+  const tweetText = `This week on pgsql-hackers: ${totalPosts} posts from ${totalParticipants} participants`;
+  const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(shareUrl)}`;
+  const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex items-center gap-4 px-8 py-3 border-b border-gray-200">
+      <button onClick={handleCopy} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+        {copied ? <Check className="h-4 w-4" /> : <LinkIcon className="h-4 w-4" />}
+        {copied ? 'Copied!' : 'Copy link'}
+      </button>
+      <a href={twitterUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+        <Twitter className="h-4 w-4" />
+        Twitter/X
+      </a>
+      <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors">
+        <Linkedin className="h-4 w-4" />
+        LinkedIn
+      </a>
+    </div>
+  );
+}
+
 export function SummaryDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
@@ -257,6 +288,9 @@ export function SummaryDetailPage() {
                 </div>
               </div>
             </div>
+
+            {/* Share Bar */}
+            <ShareBar id={id!} totalPosts={summary.total_posts} totalParticipants={summary.total_participants} />
 
             {/* Summary Content */}
             <div className="p-8">
