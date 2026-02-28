@@ -1,6 +1,9 @@
 # PostgreSQL Hackers Digest
 
-🌐 **[postgreshackersdigest.dev](https://www.postgreshackersdigest.dev)**
+[![Live Site](https://img.shields.io/badge/live-postgreshackersdigest.dev-blue)](https://www.postgreshackersdigest.dev)
+[![CI](https://github.com/haritabh17/postgres-mailing-list-summary-sender/actions/workflows/deploy-beta.yml/badge.svg)](https://github.com/haritabh17/postgres-mailing-list-summary-sender/actions/workflows/deploy-beta.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-green)](LICENSE)
+[![GitHub Stars](https://img.shields.io/github/stars/haritabh17/postgres-mailing-list-summary-sender)](https://github.com/haritabh17/postgres-mailing-list-summary-sender/stargazers)
 
 Weekly summaries of the PostgreSQL hackers mailing list, generated with AI and delivered to your inbox every Friday.
 
