@@ -578,7 +578,6 @@ function createEmailContent(subscriber: Subscriber, summary: WeeklySummary): str
     <div class="footer">
       <p>This summary was generated using AI and may not capture all nuances of the original discussions.</p>
       <p>Source: PostgreSQL Hackers Mailing List</p>
-      <p style="margin-top: 12px; color: #9ca3af;">Built by <a href="https://github.com/haritabh17" style="color: #6b7280; text-decoration: none;">Haritabh Gupta</a></p>
       <div class="unsubscribe">
         <a href="https://postgreshackersdigest.dev/unsubscribe?email=${encodeURIComponent(subscriber.email)}">Unsubscribe</a> | 
         <a href="https://postgreshackersdigest.dev">Manage Subscription</a>
