@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useSummary } from '../hooks/useSummary';
-import { ArrowLeft, CalendarDays, Users, MessageSquare, Loader2, FileText, Link as LinkIcon, Twitter, Linkedin, Check } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Users, MessageSquare, Loader2, FileText, Link as LinkIcon, Twitter, Linkedin, Check, Share2 } from 'lucide-react';
 import { markdownToHtml } from '../utils/markdown';
 
 type SummaryLevel = 'brief' | 'detailed' | 'deep';
@@ -26,6 +26,20 @@ function DiscussionCard({
   const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(shareUrl)}`;
   const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
   
+  const canNativeShare = typeof navigator !== 'undefined' && !!navigator.share;
+  
+  const handleShare = async () => {
+    try {
+      await navigator.share({
+        title: discussion.subject,
+        text: tweetText,
+        url: shareUrl,
+      });
+    } catch (e) {
+      // User cancelled or share failed — ignore
+    }
+  };
+
   const handleCopy = () => {
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
@@ -143,18 +157,27 @@ function DiscussionCard({
           </button>
         )}
         <span className="text-gray-300">|</span>
-        <button onClick={handleCopy} className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition-colors">
-          {copied ? <Check className="h-3.5 w-3.5" /> : <LinkIcon className="h-3.5 w-3.5" />}
-          {copied ? 'Copied!' : 'Copy link'}
-        </button>
-        <a href={twitterUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition-colors">
-          <Twitter className="h-3.5 w-3.5" />
-          X
-        </a>
-        <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition-colors">
-          <Linkedin className="h-3.5 w-3.5" />
-          LinkedIn
-        </a>
+        {canNativeShare ? (
+          <button onClick={handleShare} className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition-colors">
+            <Share2 className="h-3.5 w-3.5" />
+            Share
+          </button>
+        ) : (
+          <>
+            <button onClick={handleCopy} className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition-colors">
+              {copied ? <Check className="h-3.5 w-3.5" /> : <LinkIcon className="h-3.5 w-3.5" />}
+              {copied ? 'Copied!' : 'Copy link'}
+            </button>
+            <a href={twitterUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition-colors">
+              <Twitter className="h-3.5 w-3.5" />
+              X
+            </a>
+            <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-600 transition-colors">
+              <Linkedin className="h-3.5 w-3.5" />
+              LinkedIn
+            </a>
+          </>
+        )}
       </div>
     </div>
   );
