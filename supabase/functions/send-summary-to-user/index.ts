@@ -330,8 +330,16 @@ function createEmailContent(subscriber: Subscriber, summary: WeeklySummary): str
   const weekStart = new Date(summary.week_start_date)
   const weekEnd = new Date(summary.week_end_date)
   
-  // Convert markdown summary to HTML
-  const htmlSummary = convertMarkdownToHtml(summary.summary_content)
+  // Convert markdown summary to HTML, with per-discussion "Show more" links if multi-level data exists
+  const hasMultiLevel = summary.top_discussions?.some((d: any) => d.summary_brief || d.summary_detailed || d.summary_deep)
+  let htmlSummary: string
+  
+  if (hasMultiLevel && summary.top_discussions) {
+    // Build custom HTML with brief summaries + "Show more" links
+    htmlSummary = buildMultiLevelEmailHtml(summary)
+  } else {
+    htmlSummary = convertMarkdownToHtml(summary.summary_content)
+  }
 
   return `
 <!DOCTYPE html>
@@ -579,6 +587,68 @@ function createEmailContent(subscriber: Subscriber, summary: WeeklySummary): str
 </body>
 </html>
   `
+}
+
+function buildMultiLevelEmailHtml(summary: WeeklySummary): string {
+  const discussions = summary.top_discussions || []
+  
+  // Extract overview from summary_content (everything before "## Top Discussions")
+  let overview = ''
+  const topDiscIdx = summary.summary_content.indexOf('## Top Discussions')
+  if (topDiscIdx !== -1) {
+    overview = summary.summary_content.substring(0, topDiscIdx).trim()
+    // Remove H1 title and ## Overview heading
+    overview = overview.replace(/^#\s+.*$/m, '').replace(/^##\s+Overview\s*/m, '').trim()
+  }
+  
+  let html = ''
+  if (overview) {
+    html += `<h2>Overview</h2>\n${convertMarkdownToHtml(overview)}\n`
+  }
+  html += `<h2>Top Discussions</h2>\n`
+  
+  discussions.forEach((disc: any, index: number) => {
+    const num = index + 1
+    const briefSummary = disc.summary_brief || ''
+    
+    html += `<h3>${num}. ${escapeHtmlForEmail(disc.subject)}</h3>\n`
+    html += `<p><strong>Posts</strong>: ${disc.post_count} | <strong>Participants</strong>: ${disc.participants} | <strong>Duration</strong>: ${formatDate(disc.first_post_at)} - ${formatDate(disc.last_post_at)}</p>\n`
+    
+    if (disc.thread_url) {
+      html += `<p><strong>Reference Link</strong>: <a href="${disc.thread_url}" target="_blank">View Thread</a></p>\n`
+    }
+    
+    // Commitfest tags
+    if (disc.commitfest_tags && disc.commitfest_tags.length > 0) {
+      const tagsHtml = disc.commitfest_tags.map((tag: any) => {
+        const style = tag.color ? `background-color: ${tag.color}; padding: 4px 10px; border-radius: 6px; font-size: 13px;` : 'background-color: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 6px; font-size: 13px;'
+        return `<span style="${style}">${escapeHtmlForEmail(tag.name)}</span>`
+      }).join(' ')
+      html += `<p><strong>Commitfest Tags:</strong> ${tagsHtml}</p>\n`
+    }
+    
+    // AI tags
+    if (disc.ai_tags && disc.ai_tags.length > 0) {
+      const tagsHtml = disc.ai_tags.map((tag: string) => {
+        return `<span style="background-color: #f3f4f6; color: #1f2937; padding: 4px 10px; border-radius: 6px; font-size: 13px; border: 1px dashed #d1d5db;">${escapeHtmlForEmail(tag)}</span>`
+      }).join(' ')
+      html += `<p><strong>AI-Generated Discussion Tags:</strong> ${tagsHtml}</p>\n`
+    }
+    
+    html += `<p>${escapeHtmlForEmail(briefSummary)}</p>\n`
+    html += `<p><a href="https://www.postgreshackersdigest.dev/summary/${summary.id}?expand=${num}#discussion-${num}" style="color: #336791; font-weight: 600;">Show more</a></p>\n`
+    html += `<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">\n`
+  })
+  
+  return html
+}
+
+function escapeHtmlForEmail(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
 }
 
 // Configure marked for email-friendly output

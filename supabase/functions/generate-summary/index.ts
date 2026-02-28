@@ -229,7 +229,7 @@ serve(async (req) => {
     console.log(`🤖 INFO: Starting AI summary generation...`)
     const actualStartDate = new Date(stats.date_range.start)
     const actualEndDate = new Date(stats.date_range.end)
-    const summaryContent = await generateAISummary(topDiscussions, stats, actualStartDate, actualEndDate, supabaseClient)
+    const { content: summaryContent, enrichedDiscussions } = await generateAISummary(topDiscussions, stats, actualStartDate, actualEndDate, supabaseClient)
     console.log(`📝 INFO: Generated summary length: ${summaryContent.length} characters`)
     console.log(`📝 INFO: Summary preview: ${summaryContent.substring(0, 200)}...`)
 
@@ -241,14 +241,13 @@ serve(async (req) => {
     
     // Create weekly summary (use upsert to overwrite existing)
     // Use the actual date range from the data, not artificial week calculation
-
     const { data: summary, error: summaryError } = await supabaseClient
       .from('weekly_summaries')
       .upsert({
         week_start_date: actualStartDate.toISOString().split('T')[0],
         week_end_date: actualEndDate.toISOString().split('T')[0],
         summary_content: summaryContent,
-        top_discussions: topDiscussions,
+        top_discussions: enrichedDiscussions,
         total_posts: stats.total_posts,
         total_participants: stats.total_participants,
         updated_at: new Date().toISOString()
@@ -369,7 +368,7 @@ function getLastFriday(date: Date): Date {
   return lastFriday
 }
 
-async function generateAISummary(discussions: TopDiscussion[], stats: any, startDate: Date, endDate: Date, supabaseClient: any): Promise<string> {
+async function generateAISummary(discussions: TopDiscussion[], stats: any, startDate: Date, endDate: Date, supabaseClient: any): Promise<{content: string, enrichedDiscussions: any[]}> {
   console.log(`🤖 INFO: generateAISummary called with:`)
   console.log(`  Discussions count: ${discussions.length}`)
   console.log(`  Stats:`, stats)
@@ -398,7 +397,7 @@ async function generateAISummary(discussions: TopDiscussion[], stats: any, start
       const discussion = discussions[i]
       console.log(`📝 INFO: Processing discussion ${i + 1}/${discussions.length}: "${discussion.subject}"`)
       
-      const {summary: discussionSummary, tags: aiTags} = await generateIndividualDiscussionSummary(discussion, openaiApiKey, availableTags)
+      const {summary_brief, summary_detailed, summary_deep, tags: aiTags} = await generateIndividualDiscussionSummary(discussion, openaiApiKey, availableTags)
       const { threadUrl, redirectSlug } = resolveDiscussionLinks(discussion)
       
       // Fetch commitfest tags for this discussion
@@ -410,7 +409,10 @@ async function generateAISummary(discussions: TopDiscussion[], stats: any, start
 
       individualSummaries.push({
         subject: discussion.subject,
-        summary: discussionSummary,
+        summary: summary_brief,
+        summary_brief,
+        summary_detailed,
+        summary_deep,
         post_count: discussion.post_count,
         participants: discussion.participants,
         first_post_at: discussion.first_post_at,
@@ -433,8 +435,25 @@ async function generateAISummary(discussions: TopDiscussion[], stats: any, start
     console.log(`🔄 INFO: Combining individual summaries into final weekly summary...`)
     const finalSummary = combineSummariesIntoWeekly(individualSummaries, stats, startDate, endDate)
     
+    // Build enriched discussions for top_discussions JSON (includes multi-level summaries)
+    const enrichedDiscussions = individualSummaries.map(s => ({
+      thread_id: discussions.find(d => d.subject === s.subject)?.thread_id || s.subject,
+      subject: s.subject,
+      post_count: s.post_count,
+      participants: s.participants,
+      first_post_at: s.first_post_at,
+      last_post_at: s.last_post_at,
+      thread_url: s.thread_url,
+      redirect_slug: s.redirect_slug,
+      commitfest_tags: s.commitfest_tags,
+      ai_tags: s.ai_tags,
+      summary_brief: s.summary_brief,
+      summary_detailed: s.summary_detailed,
+      summary_deep: s.summary_deep,
+    }))
+    
     console.log(`✅ INFO: Final weekly summary generated (${finalSummary.length} chars)`)
-    return finalSummary
+    return { content: finalSummary, enrichedDiscussions }
     
   } catch (error) {
     console.log('❌ ERROR: Failed to generate AI summary:', error)
@@ -442,8 +461,8 @@ async function generateAISummary(discussions: TopDiscussion[], stats: any, start
   }
 }
 
-async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey: string, availableTags: string[]): Promise<{summary: string, tags: string[]}> {
-  console.log(`📝 INFO: Generating individual summary for: "${discussion.subject}"`)
+async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey: string, availableTags: string[]): Promise<{summary_brief: string, summary_detailed: string, summary_deep: string, tags: string[]}> {
+  console.log(`📝 INFO: Generating multi-level summaries for: "${discussion.subject}"`)
   
   const prompt = createIndividualDiscussionPrompt(discussion, availableTags)
   console.log(`📝 INFO: Individual prompt created (${prompt.length} characters)`)
@@ -454,19 +473,25 @@ async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey
       {
         role: 'system',
         content: `You are an expert PostgreSQL core developer who creates detailed narrative summaries 
-          of individual mailing list discussions. Write a comprehensive summary in a flowing narrative 
-          style (not bullet points) that includes specific technical details, exact function names, 
+          of individual mailing list discussions. Write comprehensive summaries in a flowing narrative 
+          style (not bullet points) that include specific technical details, exact function names, 
           data structures, algorithms, performance metrics, and implementation approaches discussed. 
           Focus on concrete technical decisions, code changes, and PostgreSQL internals mentioned. 
           Avoid high-level descriptions - include specific technical information that would be 
           valuable to PostgreSQL developers working on the codebase. Write in paragraph form with 
-          smooth transitions between ideas. Your summary should be approximately 200 words.
+          smooth transitions between ideas.
           
           You must return your response as a valid JSON object with the following structure:
           {
-            "summary": "[your narrative summary text here]",
+            "summary_brief": "[~200 word narrative summary]",
+            "summary_detailed": "[~400 word narrative summary with more technical depth]",
+            "summary_deep": "[~800 word deep dive narrative summary with full technical details]",
             "tags": ["tag1", "tag2", "tag3"]
           }
+          
+          Each summary level should be self-contained (not additive). The brief is a concise overview,
+          the detailed adds more technical context and nuance, and the deep dive covers the full
+          technical substance including specific implementation details, code paths, and design decisions.
           
           The tags array must contain 0-3 tags selected from the available tags list provided in the prompt. 
           Use only tags from the provided list - do not invent new tags. If no tags are relevant, use an empty array.`
@@ -476,7 +501,7 @@ async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey
         content: prompt
       }
     ],
-    max_tokens: 2000,
+    max_tokens: 4000,
     temperature: 0.7,
     response_format: { type: "json_object" }
   }
@@ -502,23 +527,22 @@ async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey
   try {
     // Parse JSON response
     const parsed = JSON.parse(responseContent)
-    const summary = parsed.summary || responseContent // Fallback to entire response if summary missing
+    const summary_brief = parsed.summary_brief || parsed.summary || responseContent
+    const summary_detailed = parsed.summary_detailed || summary_brief
+    const summary_deep = parsed.summary_deep || summary_detailed
     let tags = parsed.tags || []
     
     // Validate tags against available tags list
     if (Array.isArray(tags)) {
-      // Filter to only include valid tags (case-sensitive match)
       const validTags = tags
         .filter((tag: any) => typeof tag === 'string' && availableTags.includes(tag))
-        .slice(0, 3) // Limit to 3 tags max
+        .slice(0, 3)
       
-      // Log warnings for invalid tags
       const invalidTags = tags.filter((tag: any) => typeof tag === 'string' && !availableTags.includes(tag))
       if (invalidTags.length > 0) {
         console.log(`⚠️  WARN: Invalid tags filtered out: ${invalidTags.join(', ')}`)
       }
       
-      // Log warning if more than 3 tags provided
       if (tags.length > 3) {
         console.log(`⚠️  WARN: More than 3 tags provided, using first 3: ${validTags.join(', ')}`)
       }
@@ -529,11 +553,10 @@ async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey
       tags = []
     }
     
-    return { summary, tags }
+    return { summary_brief, summary_detailed, summary_deep, tags }
   } catch (parseError) {
-    // If JSON parsing fails, treat entire response as summary
     console.log(`⚠️  WARN: Failed to parse JSON response, using entire response as summary: ${parseError}`)
-    return { summary: responseContent, tags: [] }
+    return { summary_brief: responseContent, summary_detailed: responseContent, summary_deep: responseContent, tags: [] }
   }
 }
 
@@ -721,10 +744,9 @@ Please create a comprehensive summary in narrative paragraph form (NOT bullet po
 4. Highlights specific technical decisions, trade-offs, or implementation choices made
 5. Identifies any consensus reached or ongoing debates with technical reasoning
 6. Includes any specific PostgreSQL internals, APIs, or system behavior discussed
-7. Is approximately 200 words written in paragraph form with smooth transitions
-8. Is written for PostgreSQL core developers who need technical depth
-9. Write in a narrative style with complete sentences and paragraphs - avoid bullet points, numbered lists, or fragmented sentences
-10. Do NOT include any references to mail threads, links, authors, or thread URLs - write only pure narrative text summarizing the technical discussion
+7. Is written for PostgreSQL core developers who need technical depth
+8. Write in a narrative style with complete sentences and paragraphs - avoid bullet points, numbered lists, or fragmented sentences
+9. Do NOT include any references to mail threads, links, authors, or thread URLs - write only pure narrative text summarizing the technical discussion
 
 Focus on the technical substance, specific implementation details, and exact technical decisions. Write in a flowing narrative style that reads like a technical article, not a list. Avoid high-level descriptions - include concrete technical information that would be valuable to PostgreSQL developers working on the codebase. The summary should be pure narrative text without any references to the source material.
 
@@ -736,10 +758,13 @@ Available tags: ${availableTags.join(', ')}
 
 Return your response as a JSON object with this exact structure:
 {
-  "summary": "[your narrative summary text here]",
+  "summary_brief": "[~200 word narrative summary]",
+  "summary_detailed": "[~400 word narrative summary with more technical depth]",
+  "summary_deep": "[~800 word deep dive with full technical details, code paths, and design decisions]",
   "tags": ["tag1", "tag2", "tag3"]
 }
 
+Each summary level should be self-contained (not additive). The brief is a concise overview, the detailed adds more technical context, and the deep dive covers the full technical substance.
 The tags array should contain 0-3 tags from the available tags list above. Select only the most relevant tags that best categorize this discussion.`
 
   const finalTokenCount = countTokens(prompt)
