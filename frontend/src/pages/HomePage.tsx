@@ -107,20 +107,30 @@ export function HomePage() {
       {/* Footer */}
       <footer className="bg-white border-t border-gray-200 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center text-gray-500 text-sm space-y-2">
+          <div className="text-center text-gray-500 text-sm space-y-3">
             <p>
               This service is not affiliated with the PostgreSQL Global Development Group.
               Summaries are generated using AI and may not capture all nuances of discussions.
             </p>
-            <p>
+            <p className="text-gray-400">
+              Built by{' '}
+              <a
+                href="https://github.com/haritabh17"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 hover:text-gray-700 transition-colors"
+              >
+                Haritabh Gupta
+              </a>
+              {' · '}
               <a
                 href="https://github.com/haritabh17/postgres-mailing-list-summary-sender"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center space-x-1 text-gray-400 hover:text-gray-600 transition-colors"
               >
-                <Github className="h-4 w-4" />
-                <span>Open source on GitHub</span>
+                <Github className="h-3.5 w-3.5" />
+                <span>Source</span>
               </a>
             </p>
           </div>
