@@ -59,4 +59,4 @@ PRs welcome. Fork it, make a branch, open a PR.
 
 ## License
 
-MIT
+Apache 2.0 — see [LICENSE](LICENSE)
