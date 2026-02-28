@@ -1,5 +1,7 @@
 # PostgreSQL Mailing List Summary Sender
 
+🌐 **Live at [postgreshackersdigest.dev](https://www.postgreshackersdigest.dev)**
+
 A fully automated service that sends weekly AI-powered summaries of PostgreSQL mailing list discussions to subscribers.
 
 ## 🎯 Features
