@@ -575,16 +575,6 @@ function createEmailContent(subscriber: Subscriber, summary: WeeklySummary): str
     <div class="summary-content">
       ${htmlSummary}
     </div>
-    <div style="text-align: center; padding: 16px 24px; border-top: 1px solid #e5e7eb;">
-      <p style="font-size: 13px; color: #9ca3af; margin: 0 0 8px 0;">Share this digest</p>
-      <p style="font-size: 14px; margin: 0;">
-        <a href="https://twitter.com/intent/tweet?text=${encodeURIComponent(`This week on pgsql-hackers: ${summary.total_posts} posts from ${summary.total_participants} participants`)}&url=${encodeURIComponent(`https://www.postgreshackersdigest.dev/summary/${summary.id}`)}" style="color: #336791; text-decoration: none;">Twitter/X</a>
-        &middot;
-        <a href="https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://www.postgreshackersdigest.dev/summary/${summary.id}`)}" style="color: #336791; text-decoration: none;">LinkedIn</a>
-        &middot;
-        <a href="mailto:?subject=${encodeURIComponent('PostgreSQL Hackers Weekly Summary')}&body=${encodeURIComponent(`Check out this week's PostgreSQL Hackers digest: https://www.postgreshackersdigest.dev/summary/${summary.id}`)}" style="color: #336791; text-decoration: none;">Forward to a colleague</a>
-      </p>
-    </div>
     <div class="footer">
       <p>This summary was generated using AI and may not capture all nuances of the original discussions.</p>
       <p>Source: PostgreSQL Hackers Mailing List</p>
@@ -646,7 +636,12 @@ function buildMultiLevelEmailHtml(summary: WeeklySummary): string {
     }
     
     html += `<p>${escapeHtmlForEmail(briefSummary)}</p>\n`
-    html += `<p><a href="https://www.postgreshackersdigest.dev/summary/${summary.id}?expand=${num}#discussion-${num}" style="color: #336791; font-weight: 600;">Show more</a></p>\n`
+    const discShareUrl = `https://www.postgreshackersdigest.dev/summary/${summary.id}?expand=${num}#discussion-${num}`
+    const discTweetText = `${disc.subject} — this week on pgsql-hackers`
+    const discTwitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(discTweetText)}&url=${encodeURIComponent(discShareUrl)}`
+    const discLinkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(discShareUrl)}`
+    
+    html += `<p><a href="${discShareUrl}" style="color: #336791; font-weight: 600;">Show more</a> &nbsp;&middot;&nbsp; <a href="${discTwitterUrl}" style="color: #9ca3af; text-decoration: none; font-size: 13px;">Share on X</a> &middot; <a href="${discLinkedinUrl}" style="color: #9ca3af; text-decoration: none; font-size: 13px;">LinkedIn</a></p>\n`
     html += `<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">\n`
   })
   
