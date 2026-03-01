@@ -138,7 +138,7 @@ function DiscussionCard({
       )}
 
       <div className="prose prose-lg max-w-none prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-p:text-justify mt-4">
-        <div dangerouslySetInnerHTML={{ __html: markdownToHtml(getCurrentSummary()) }} />
+        <p dangerouslySetInnerHTML={{ __html: getCurrentSummary().replace(/`([^`]+)`/g, '<code>$1</code>') }} />
       </div>
 
       <div className="mt-3 flex items-center gap-4">
