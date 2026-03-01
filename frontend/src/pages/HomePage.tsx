@@ -40,16 +40,6 @@ export function HomePage() {
                 <p className="text-sm text-gray-500">AI-powered weekly summaries</p>
               </div>
             </div>
-            <a
-              href="https://github.com/haritabh17/postgres-mailing-list-summary-sender"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center space-x-1.5 text-gray-500 hover:text-gray-900 transition-colors"
-              title="View on GitHub"
-            >
-              <Github className="h-5 w-5" />
-              <span className="text-sm font-medium hidden sm:inline">GitHub</span>
-            </a>
           </div>
         </div>
       </header>

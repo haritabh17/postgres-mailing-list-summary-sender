@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Calendar, Users, FileText } from 'lucide-react'
 import { useSummaries } from '../hooks/useSummaries'
 
 export function SummariesList() {
   const { summaries, isLoading, error } = useSummaries()
+  const [visibleCount, setVisibleCount] = useState(3)
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -72,42 +74,54 @@ export function SummariesList() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {summaries.map((summary) => (
-            <div key={summary.id} className="card hover:shadow-lg transition-shadow">
-              <div className="flex flex-col mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    Week of {formatDateWithOrdinal(summary.week_end_date)}
-                  </h3>
-                  <div className="flex flex-col gap-2 text-xs text-gray-500">
-                    <div className="flex items-center space-x-1">
-                      <FileText className="h-3 w-3" />
-                      <span>{summary.total_posts} posts</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Users className="h-3 w-3" />
-                      <span>{summary.total_participants} participants</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="h-3 w-3" />
-                      <span>Generated {formatDate(summary.created_at)}</span>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {summaries.slice(0, visibleCount).map((summary) => (
+              <div key={summary.id} className="card hover:shadow-lg transition-shadow">
+                <div className="flex flex-col mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      Week of {formatDateWithOrdinal(summary.week_end_date)}
+                    </h3>
+                    <div className="flex flex-col gap-2 text-xs text-gray-500">
+                      <div className="flex items-center space-x-1">
+                        <FileText className="h-3 w-3" />
+                        <span>{summary.total_posts} posts</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Users className="h-3 w-3" />
+                        <span>{summary.total_participants} participants</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Calendar className="h-3 w-3" />
+                        <span>Generated {formatDate(summary.created_at)}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <Link
-                  to={`/summary/${summary.id}`}
-                  className="text-postgres-600 hover:text-postgres-700 font-medium text-sm inline-flex items-center transition-colors"
-                >
-                  Read Full Summary →
-                </Link>
+                <div className="mt-4 pt-4 border-t border-gray-100">
+                  <Link
+                    to={`/summary/${summary.id}`}
+                    className="text-postgres-600 hover:text-postgres-700 font-medium text-sm inline-flex items-center transition-colors"
+                  >
+                    Read Full Summary →
+                  </Link>
+                </div>
               </div>
+            ))}
+          </div>
+          {visibleCount < summaries.length && (
+            <div className="text-center mt-6">
+              <button
+                onClick={() => setVisibleCount(prev => Math.min(prev * 2, summaries.length))}
+                className="text-postgres-600 hover:text-postgres-800 font-medium text-sm transition-colors"
+              >
+                Show more ({summaries.length - visibleCount} remaining)
+              </button>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   )
