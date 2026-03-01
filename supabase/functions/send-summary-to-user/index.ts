@@ -638,10 +638,7 @@ function buildMultiLevelEmailHtml(summary: WeeklySummary): string {
     html += `<p>${escapeHtmlForEmail(briefSummary)}</p>\n`
     const discShareUrl = `https://www.postgreshackersdigest.dev/summary/${summary.id}?expand=${num}#discussion-${num}`
     const discTweetText = `${disc.subject} — this week on pgsql-hackers`
-    const discTwitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(discTweetText)}&url=${encodeURIComponent(discShareUrl)}`
-    const discLinkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(discShareUrl)}`
-    
-    html += `<p><a href="${discShareUrl}" style="color: #336791; font-weight: 600;">Show more</a> &nbsp;&middot;&nbsp; <a href="${discTwitterUrl}" style="color: #9ca3af; text-decoration: none; font-size: 13px;">Share on X</a> &middot; <a href="${discLinkedinUrl}" style="color: #9ca3af; text-decoration: none; font-size: 13px;">LinkedIn</a></p>\n`
+    html += `<p><a href="${discShareUrl}" style="color: #336791; font-weight: 600;">Show more</a> &nbsp;&middot;&nbsp; <a href="${discShareUrl}" style="color: #9ca3af; text-decoration: none; font-size: 13px;">Share</a></p>\n`
     html += `<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">\n`
   })
   
