@@ -481,6 +481,11 @@ async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey
           valuable to PostgreSQL developers working on the codebase. Write in paragraph form with 
           smooth transitions between ideas.
           
+          IMPORTANT: Wrap all code identifiers in backticks (\`). This includes function names, 
+          variable names, constants, macros, struct names, SQL keywords/commands, configuration 
+          parameters, file names, and any other code-related terms. For example: \`MaxChildren\`, 
+          \`pg_dump\`, \`CREATE PUBLICATION\`, \`wal_level\`, \`FIRST_PREPARED_XACT_PROC_NUMBER\`.
+          
           You must return your response as a valid JSON object with the following structure:
           {
             "summary_brief": "[~200 word narrative summary]",
