@@ -393,21 +393,27 @@ async function generateAISummary(discussions: TopDiscussion[], stats: any, start
     // Generate individual summaries for each discussion
     const individualSummaries: any[] = []
     
-    for (let i = 0; i < discussions.length; i++) {
-      const discussion = discussions[i]
-      console.log(`📝 INFO: Processing discussion ${i + 1}/${discussions.length}: "${discussion.subject}"`)
+    // Process all discussions in parallel for speed (avoid edge function timeout)
+    console.log(`🚀 INFO: Processing all ${discussions.length} discussions in parallel...`)
+    
+    const results = await Promise.all(discussions.map(async (discussion, i) => {
+      console.log(`📝 INFO: Starting discussion ${i + 1}/${discussions.length}: "${discussion.subject}"`)
       
-      const {summary_brief, summary_detailed, summary_deep, tags: aiTags} = await generateIndividualDiscussionSummary(discussion, openaiApiKey, availableTags)
-      const { threadUrl, redirectSlug } = resolveDiscussionLinks(discussion)
+      const [{summary_brief, summary_detailed, summary_deep, tags: aiTags}, { threadUrl, redirectSlug }, commitfestTags] = await Promise.all([
+        generateIndividualDiscussionSummary(discussion, openaiApiKey, availableTags),
+        Promise.resolve(resolveDiscussionLinks(discussion)),
+        getCommitfestTagsForSubject(discussion.subject, supabaseClient)
+      ])
       
-      // Fetch commitfest tags for this discussion
-      const commitfestTags = await getCommitfestTagsForSubject(discussion.subject, supabaseClient)
       if (commitfestTags.length > 0) {
-        const tagNames = commitfestTags.map(t => t.name).join(', ')
-        console.log(`🏷️  INFO: Found ${commitfestTags.length} commitfest tags for "${discussion.subject}": ${tagNames}`)
+        console.log(`🏷️  INFO: Found ${commitfestTags.length} commitfest tags for "${discussion.subject}"`)
       }
-
-      individualSummaries.push({
+      if (aiTags.length > 0) {
+        console.log(`🤖 INFO: AI generated ${aiTags.length} tags: ${aiTags.join(', ')}`)
+      }
+      console.log(`✅ INFO: Summary generated for discussion ${i + 1} (${summary_brief.length} chars brief, ${summary_detailed.length} chars detailed, ${summary_deep.length} chars deep)`)
+      
+      return {
         subject: discussion.subject,
         summary: summary_brief,
         summary_brief,
@@ -421,13 +427,10 @@ async function generateAISummary(discussions: TopDiscussion[], stats: any, start
         redirect_slug: redirectSlug,
         commitfest_tags: commitfestTags,
         ai_tags: aiTags
-      })
-      
-      if (aiTags.length > 0) {
-        console.log(`🤖 INFO: AI generated ${aiTags.length} tags: ${aiTags.join(', ')}`)
       }
-      console.log(`✅ INFO: Summary generated for discussion ${i + 1} (${summary_brief.length} chars brief, ${summary_detailed.length} chars detailed, ${summary_deep.length} chars deep)`)
-    }
+    }))
+    
+    individualSummaries.push(...results)
     
     console.log(`✅ INFO: Generated ${individualSummaries.length} individual summaries`)
     
