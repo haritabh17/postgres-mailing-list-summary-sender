@@ -464,6 +464,37 @@ async function generateAISummary(discussions: TopDiscussion[], stats: any, start
   }
 }
 
+// Restore backslashes for psql meta-commands that the LLM drops from its JSON output.
+// The model often writes "dRp+" instead of "\dRp+" — we cross-reference with the thread
+// subject (which always has the correct form) and fix the summary text.
+function restoreBackslashCommands(text: string, subject: string): string {
+  // Extract psql meta-commands like \dRp+, \dRs+, \dt, \d from the subject
+  const metaCmds = (subject.match(/\\d\w*\+?/g) || [])
+  if (metaCmds.length === 0) return text
+  
+  for (const cmd of metaCmds) {
+    // The model often drops the entire "\d" prefix, e.g. "\dRp+" → "Rp+"
+    const afterD = cmd.slice(2) // skip "\d", e.g. "Rp+" from "\dRp+"
+    if (!afterD) continue
+    
+    // Restore inside backticks: `Rp+` → `\dRp+`
+    text = text.replace(new RegExp('`' + escapeRegex(afterD) + '`', 'g'), '`' + cmd + '`')
+    
+    // Also handle case where model kept 'd' but dropped '\': `dRp+` → `\dRp+`
+    const withoutBackslash = cmd.slice(1) // "dRp+"
+    text = text.replace(new RegExp('`' + escapeRegex(withoutBackslash) + '`', 'g'), '`' + cmd + '`')
+  }
+  
+  // Fix empty backticks `` that result from \d being completely stripped
+  text = text.replace(/``/g, '')
+  
+  return text
+}
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey: string, availableTags: string[]): Promise<{summary_brief: string, summary_detailed: string, summary_deep: string, tags: string[]}> {
   console.log(`📝 INFO: Generating multi-level summaries for: "${discussion.subject}"`)
   
@@ -566,7 +597,13 @@ async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey
       tags = []
     }
     
-    return { summary_brief, summary_detailed, summary_deep, tags }
+    // Post-process: restore backslashes for psql meta-commands that the model drops.
+    // Cross-reference with the discussion subject which has the correct \d prefixes.
+    const restored = [summary_brief, summary_detailed, summary_deep].map(
+      text => restoreBackslashCommands(text, discussion.subject)
+    )
+    
+    return { summary_brief: restored[0], summary_detailed: restored[1], summary_deep: restored[2], tags }
   } catch (parseError) {
     console.log(`⚠️  WARN: Failed to parse JSON response, using entire response as summary: ${parseError}`)
     return { summary_brief: responseContent, summary_detailed: responseContent, summary_deep: responseContent, tags: [] }
