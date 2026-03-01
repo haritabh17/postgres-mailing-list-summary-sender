@@ -138,7 +138,7 @@ function DiscussionCard({
       )}
 
       <div className="prose prose-lg max-w-none prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-p:text-justify mt-4">
-        <p>{getCurrentSummary()}</p>
+        <div dangerouslySetInnerHTML={{ __html: markdownToHtml(getCurrentSummary()) }} />
       </div>
 
       <div className="mt-3 flex items-center gap-4">
