@@ -563,14 +563,8 @@ async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey
   const responseContent = data.choices[0].message.content
   
   try {
-    // Fix unescaped backslashes in JSON string values before parsing.
-    // LLMs often write \dRp+ in JSON strings without double-escaping,
-    // which causes JSON.parse to drop the backslash (since \d is not a valid JSON escape).
-    // This regex finds backslashes NOT followed by a valid JSON escape character and doubles them.
-    const fixedContent = responseContent.replace(/\\(?!["\\/bfnrtu])/g, '\\\\')
-    
     // Parse JSON response
-    const parsed = JSON.parse(fixedContent)
+    const parsed = JSON.parse(responseContent)
     const summary_brief = parsed.summary_brief || parsed.summary || responseContent
     const summary_detailed = parsed.summary_detailed || summary_brief
     const summary_deep = parsed.summary_deep || summary_detailed
