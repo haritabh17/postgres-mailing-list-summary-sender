@@ -12,7 +12,7 @@ export interface WeeklySummary {
   updated_at: string
 }
 
-const PAGE_SIZE = 3
+const INITIAL_SIZE = 3
 
 export function useSummaries() {
   const [summaries, setSummaries] = useState<WeeklySummary[]>([])
@@ -20,8 +20,9 @@ export function useSummaries() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(true)
+  const [nextPageSize, setNextPageSize] = useState(INITIAL_SIZE)
 
-  const fetchSummaries = useCallback(async (offset = 0, append = false) => {
+  const fetchSummaries = useCallback(async (offset = 0, limit = INITIAL_SIZE, append = false) => {
     try {
       if (append) {
         setIsLoadingMore(true)
@@ -34,14 +35,14 @@ export function useSummaries() {
         .from('weekly_summaries')
         .select('id, week_start_date, week_end_date, total_posts, total_participants, created_at')
         .order('week_start_date', { ascending: false })
-        .range(offset, offset + PAGE_SIZE - 1)
+        .range(offset, offset + limit - 1)
 
       if (fetchError) {
         throw fetchError
       }
 
       const newData = (data || []) as WeeklySummary[]
-      setHasMore(newData.length === PAGE_SIZE)
+      setHasMore(newData.length === limit)
 
       if (append) {
         setSummaries(prev => [...prev, ...newData])
@@ -62,8 +63,9 @@ export function useSummaries() {
   }, [fetchSummaries])
 
   const loadMore = useCallback(() => {
-    fetchSummaries(summaries.length, true)
-  }, [summaries.length, fetchSummaries])
+    fetchSummaries(summaries.length, nextPageSize, true)
+    setNextPageSize(prev => prev * 2) // 3 → 6 → 12 → 24 → ...
+  }, [summaries.length, nextPageSize, fetchSummaries])
 
   return {
     summaries,
@@ -72,6 +74,6 @@ export function useSummaries() {
     error,
     hasMore,
     loadMore,
-    refetch: () => fetchSummaries(0, false)
+    refetch: () => fetchSummaries(0, INITIAL_SIZE, false)
   }
 }
