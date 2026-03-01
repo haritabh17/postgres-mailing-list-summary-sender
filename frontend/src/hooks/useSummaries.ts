@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 export interface WeeklySummary {
@@ -12,42 +12,66 @@ export interface WeeklySummary {
   updated_at: string
 }
 
+const PAGE_SIZE = 3
+
 export function useSummaries() {
   const [summaries, setSummaries] = useState<WeeklySummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(true)
 
-  useEffect(() => {
-    fetchSummaries()
-  }, [])
-
-  const fetchSummaries = async () => {
+  const fetchSummaries = useCallback(async (offset = 0, append = false) => {
     try {
-      setIsLoading(true)
+      if (append) {
+        setIsLoadingMore(true)
+      } else {
+        setIsLoading(true)
+      }
       setError(null)
 
       const { data, error: fetchError } = await supabase
         .from('weekly_summaries')
-        .select('*')
+        .select('id, week_start_date, week_end_date, total_posts, total_participants, created_at')
         .order('week_start_date', { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1)
 
       if (fetchError) {
         throw fetchError
       }
 
-      setSummaries(data || [])
+      const newData = (data || []) as WeeklySummary[]
+      setHasMore(newData.length === PAGE_SIZE)
+
+      if (append) {
+        setSummaries(prev => [...prev, ...newData])
+      } else {
+        setSummaries(newData)
+      }
     } catch (err) {
       console.error('Error fetching summaries:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch summaries')
     } finally {
       setIsLoading(false)
+      setIsLoadingMore(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    fetchSummaries()
+  }, [fetchSummaries])
+
+  const loadMore = useCallback(() => {
+    fetchSummaries(summaries.length, true)
+  }, [summaries.length, fetchSummaries])
 
   return {
     summaries,
     isLoading,
+    isLoadingMore,
     error,
-    refetch: fetchSummaries
+    hasMore,
+    loadMore,
+    refetch: () => fetchSummaries(0, false)
   }
 }

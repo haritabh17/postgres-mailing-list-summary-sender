@@ -1,11 +1,9 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Calendar, Users, FileText } from 'lucide-react'
+import { Calendar, Users, FileText, Loader2 } from 'lucide-react'
 import { useSummaries } from '../hooks/useSummaries'
 
 export function SummariesList() {
-  const { summaries, isLoading, error } = useSummaries()
-  const [visibleCount, setVisibleCount] = useState(3)
+  const { summaries, isLoading, isLoadingMore, error, hasMore, loadMore } = useSummaries()
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -53,7 +51,7 @@ export function SummariesList() {
       
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
+          {[...Array(3)].map((_, i) => (
             <div key={i} className="card animate-pulse">
               <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
               <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
@@ -76,7 +74,7 @@ export function SummariesList() {
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {summaries.slice(0, visibleCount).map((summary) => (
+            {summaries.map((summary) => (
               <div key={summary.id} className="card hover:shadow-lg transition-shadow">
                 <div className="flex flex-col mb-4">
                   <div>
@@ -111,13 +109,21 @@ export function SummariesList() {
               </div>
             ))}
           </div>
-          {visibleCount < summaries.length && (
+          {hasMore && (
             <div className="text-center mt-6">
               <button
-                onClick={() => setVisibleCount(prev => Math.min(prev * 2, summaries.length))}
-                className="text-postgres-600 hover:text-postgres-800 font-medium text-sm transition-colors"
+                onClick={loadMore}
+                disabled={isLoadingMore}
+                className="text-postgres-600 hover:text-postgres-800 font-medium text-sm transition-colors disabled:opacity-50"
               >
-                Show more ({summaries.length - visibleCount} remaining)
+                {isLoadingMore ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </span>
+                ) : (
+                  'Show more'
+                )}
               </button>
             </div>
           )}
@@ -126,4 +132,3 @@ export function SummariesList() {
     </div>
   )
 }
-
