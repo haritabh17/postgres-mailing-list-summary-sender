@@ -30,7 +30,9 @@
   }
   
   .prose code {
-    @apply bg-gray-100 text-postgres-700 px-1.5 py-0.5 rounded text-sm font-mono;
+    @apply bg-gray-100 text-postgres-700 px-1 py-px rounded font-mono;
+    font-size: 0.875em;
+    word-break: break-word;
   }
 
   .line-clamp-4 {
