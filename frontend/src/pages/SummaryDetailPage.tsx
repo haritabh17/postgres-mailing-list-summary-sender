@@ -22,7 +22,9 @@ function DiscussionCard({
   const ref = useRef<HTMLDivElement>(null);
   
   const shareUrl = `https://www.postgreshackersdigest.dev/summary/${summaryId}?expand=${index + 1}#discussion-${index + 1}`;
-  const tweetText = `${discussion.subject} — this week on pgsql-hackers`;
+  const briefSnippet = (discussion.summary_brief || '').slice(0, 150).trim() + ((discussion.summary_brief || '').length > 150 ? '...' : '');
+  const shareText = `${discussion.subject}\n\n${briefSnippet}`;
+  const tweetText = briefSnippet ? `${discussion.subject} — "${briefSnippet}"` : `${discussion.subject} — this week on pgsql-hackers`;
   const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(tweetText)}&url=${encodeURIComponent(shareUrl)}`;
   const linkedinUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
   
@@ -32,7 +34,7 @@ function DiscussionCard({
     try {
       await navigator.share({
         title: discussion.subject,
-        text: tweetText,
+        text: shareText,
         url: shareUrl,
       });
     } catch (e) {
