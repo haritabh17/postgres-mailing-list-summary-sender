@@ -21,6 +21,11 @@ export function markdownToHtml(markdown: string): string {
     return `<!--TAGS_CONTAINER_PLACEHOLDER_${tagsIndex++}-->`
   })
   
+  // Escape backslashes inside backtick-delimited code spans so marked doesn't treat them as escape sequences
+  protectedMarkdown = protectedMarkdown.replace(/`([^`]+)`/g, (_match, code) => {
+    return '`' + code.replace(/\\/g, '\\\\') + '`';
+  });
+
   // Use marked library for reliable markdown conversion
   let html = marked(protectedMarkdown) as string;
   

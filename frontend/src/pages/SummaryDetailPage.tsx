@@ -137,7 +137,7 @@ function DiscussionCard({
         </div>
       )}
 
-      <div className="prose prose-lg max-w-none prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4  mt-4">
+      <div className="prose prose-lg max-w-none prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-p:text-justify mt-4">
         <div dangerouslySetInnerHTML={{ __html: markdownToHtml(getCurrentSummary()) }} />
       </div>
 
@@ -371,7 +371,7 @@ export function SummaryDetailPage() {
                     const overview = extractOverview(summary.summary_content);
                     if (!overview) return null;
                     return (
-                      <div className="prose prose-lg max-w-none prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4  mb-8">
+                      <div className="prose prose-lg max-w-none prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-p:text-justify mb-8">
                         <h2 className="text-2xl font-semibold text-postgres-700 mb-4">Overview</h2>
                         <div dangerouslySetInnerHTML={{ __html: markdownToHtml(overview) }} />
                       </div>
@@ -398,7 +398,7 @@ export function SummaryDetailPage() {
                     prose-h1:text-3xl prose-h1:font-bold prose-h1:mb-6 prose-h1:mt-0
                     prose-h2:text-2xl prose-h2:font-semibold prose-h2:mb-4 prose-h2:mt-8
                     prose-h3:text-xl prose-h3:font-semibold prose-h3:mb-3 prose-h3:mt-6
-                    prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 
+                    prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-p:text-justify
                     prose-strong:text-gray-900 prose-strong:font-semibold
                     prose-code:text-postgres-700 prose-code:bg-postgres-50 prose-code:px-2 prose-code:py-1 prose-code:rounded prose-code:text-sm prose-code:font-mono
                     prose-pre:bg-gray-900 prose-pre:text-gray-100 prose-pre:p-4 prose-pre:rounded-lg prose-pre:overflow-x-auto
