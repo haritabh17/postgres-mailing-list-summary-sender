@@ -468,7 +468,7 @@ async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey
   console.log(`📝 INFO: Individual prompt created (${prompt.length} characters)`)
   
   const requestBody = {
-    model: 'gpt-3.5-turbo',
+    model: 'gpt-4o-mini',
     messages: [
       {
         role: 'system',
@@ -481,10 +481,7 @@ async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey
           valuable to PostgreSQL developers working on the codebase. Write in paragraph form with 
           smooth transitions between ideas.
           
-          IMPORTANT: Wrap all code identifiers in backticks (\`). This includes function names, 
-          variable names, constants, macros, struct names, SQL keywords/commands, configuration 
-          parameters, file names, and any other code-related terms. For example: \`MaxChildren\`, 
-          \`pg_dump\`, \`CREATE PUBLICATION\`, \`wal_level\`, \`FIRST_PREPARED_XACT_PROC_NUMBER\`.
+          IMPORTANT: Use markdown inline code formatting (backticks) around all code identifiers in your summaries. This includes function names, variable names, constants, macros, struct names, SQL commands, GUC parameters, file names, and any code-related terms.
           
           You must return your response as a valid JSON object with the following structure:
           {
@@ -523,7 +520,7 @@ async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey
   if (!response.ok) {
     const errorText = await response.text()
     console.log(`❌ INFO: OpenAI API error for individual summary: ${errorText}`)
-    throw new Error(`OpenAI API error: ${response.statusText}`)
+    throw new Error(`OpenAI API error: ${response.statusText} - ${errorText}`)
   }
 
   const data = await response.json()
