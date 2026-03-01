@@ -486,6 +486,8 @@ async function generateIndividualDiscussionSummary(discussion: any, openaiApiKey
           
           IMPORTANT: Use markdown inline code formatting (backticks) around all code identifiers in your summaries. This includes function names, variable names, constants, macros, struct names, SQL commands, GUC parameters, file names, and any code-related terms.
           
+          CRITICAL: Preserve all backslash characters in identifiers. PostgreSQL uses backslash-prefixed meta-commands like \\dRp+, \\dRs+, \\dt, \\d, etc. You MUST include the backslash. In your JSON output, use double backslashes (e.g. "\\\\dRp+" in the JSON string) so they are preserved after parsing.
+          
           You must return your response as a valid JSON object with the following structure:
           {
             "summary_brief": "[~200 word narrative summary]",
