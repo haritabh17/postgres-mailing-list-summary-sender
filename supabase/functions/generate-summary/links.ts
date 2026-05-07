@@ -28,17 +28,3 @@ export function resolveDiscussionLinks(discussion: any): { threadUrl: string | n
     redirectSlug
   }
 }
-
-export function resolveDiscussionPromptLink(discussion: any): { threadUrl: string, authorName: string } {
-  const posts: any[] = discussion.full_content || []
-  const latestPost = posts[posts.length - 1] || {}
-
-  const { threadUrl } = resolveDiscussionLinks(discussion)
-  const resolvedUrl = threadUrl || latestPost.thread_url || '#'
-  const authorName = latestPost.author_name || 'Unknown'
-
-  return {
-    threadUrl: resolvedUrl,
-    authorName
-  }
-}

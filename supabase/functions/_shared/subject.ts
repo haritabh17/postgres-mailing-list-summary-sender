@@ -1,15 +1,11 @@
+// Normalize a mailing-list subject for matching across sources:
+// lowercase, trim whitespace, strip Re:/Fwd: prefixes, collapse whitespace.
+// Used to match commitfest-scraped subjects against pgsql-hackers archive
+// subjects and against weekly summary subjects.
 export function normalizeSubject(subject: string): string {
-  // Lowercase
   let normalized = subject.toLowerCase()
-
-  // Trim whitespace
   normalized = normalized.trim()
-
-  // Remove "Re:", "Fwd:", "RE:", "FWD:" prefixes
   normalized = normalized.replace(/^(re|fwd):\s*/i, '')
-
-  // Remove extra whitespace
   normalized = normalized.replace(/\s+/g, ' ')
-
   return normalized.trim()
 }

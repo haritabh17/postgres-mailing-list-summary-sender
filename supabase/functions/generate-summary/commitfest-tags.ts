@@ -1,4 +1,4 @@
-import { normalizeSubject } from './subject.ts'
+import { normalizeSubject } from '../_shared/subject.ts'
 import type { CommitfestTag } from './types.ts'
 
 export async function getAllCommitfestTags(supabaseClient: any): Promise<string[]> {

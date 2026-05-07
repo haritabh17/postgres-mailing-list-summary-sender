@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { normalizeSubject } from '../_shared/subject.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -454,21 +455,5 @@ function extractMailThreadSubject(html: string): string {
   }
 
   return 'Unknown Subject'
-}
-
-function normalizeSubject(subject: string): string {
-  // Lowercase
-  let normalized = subject.toLowerCase()
-  
-  // Trim whitespace
-  normalized = normalized.trim()
-  
-  // Remove "Re:", "Fwd:", "RE:", "FWD:" prefixes
-  normalized = normalized.replace(/^(re|fwd):\s*/i, '')
-  
-  // Remove extra whitespace
-  normalized = normalized.replace(/\s+/g, ' ')
-  
-  return normalized.trim()
 }
 
