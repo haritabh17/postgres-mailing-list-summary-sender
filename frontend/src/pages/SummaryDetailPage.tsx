@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useSummary } from '../hooks/useSummary';
 import { ArrowLeft, CalendarDays, Users, MessageSquare, Loader2, FileText, Link as LinkIcon, Twitter, Linkedin, Check, Share2 } from 'lucide-react';
-import { markdownToHtml } from '../utils/markdown';
+import { markdownToHtml, sanitizeHtml } from '../utils/markdown';
 
 type SummaryLevel = 'brief' | 'detailed' | 'deep';
 
@@ -138,7 +138,7 @@ function DiscussionCard({
       )}
 
       <div className="prose prose-lg max-w-none prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4 prose-p:text-justify mt-4">
-        <p dangerouslySetInnerHTML={{ __html: getCurrentSummary().replace(/`([^`]+)`/g, '<code>$1</code>') }} />
+        <p dangerouslySetInnerHTML={{ __html: sanitizeHtml(getCurrentSummary().replace(/`([^`]+)`/g, '<code>$1</code>')) }} />
       </div>
 
       <div className="mt-3 flex items-center gap-4">

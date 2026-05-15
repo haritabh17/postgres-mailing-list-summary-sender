@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { marked } from 'https://esm.sh/marked@11.1.1'
+import { requireServiceRole } from '../_shared/auth.ts'
+import { sanitizeHtml } from '../_shared/sanitize-html.ts'
+import { makeUnsubscribeToken, normalizeEmail } from '../_shared/unsubscribe-token.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -30,6 +33,11 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // Internal-only: this function emails confirmed subscribers. Without this
+  // gate any caller with the public anon key could trigger sends to anyone.
+  const authError = requireServiceRole(req)
+  if (authError) return authError
 
   try {
     console.log(`🚀 INFO: Send summary to users function called - Method: ${req.method}`)
@@ -125,7 +133,7 @@ serve(async (req) => {
         console.log(`✅ INFO: Subscriber verified: ${subscriber.email}`)
 
         // Send email to the subscriber
-        const emailContent = createEmailContent(subscriber, summary)
+        const emailContent = await createEmailContent(subscriber, summary)
         const subject = `PostgreSQL Weekly Summary - Week of ${formatDateWithOrdinal(summary.week_end_date)}`
         
         const emailSent = await sendSummaryEmail(subscriber.email, subject, emailContent)
@@ -326,20 +334,25 @@ async function sendSummaryEmail(email: string, subject: string, htmlContent: str
   }
 }
 
-function createEmailContent(subscriber: Subscriber, summary: WeeklySummary): string {
+async function createEmailContent(subscriber: Subscriber, summary: WeeklySummary): Promise<string> {
   const weekStart = new Date(summary.week_start_date)
   const weekEnd = new Date(summary.week_end_date)
-  
+
   // Convert markdown summary to HTML, with per-discussion "Show more" links if multi-level data exists
   const hasMultiLevel = summary.top_discussions?.some((d: any) => d.summary_brief || d.summary_detailed || d.summary_deep)
   let htmlSummary: string
-  
+
   if (hasMultiLevel && summary.top_discussions) {
     // Build custom HTML with brief summaries + "Show more" links
     htmlSummary = buildMultiLevelEmailHtml(summary)
   } else {
     htmlSummary = convertMarkdownToHtml(summary.summary_content)
   }
+
+  // Per-recipient HMAC unsubscribe token; one-click and binding to this address.
+  const normalizedEmail = normalizeEmail(subscriber.email)
+  const unsubscribeToken = await makeUnsubscribeToken(normalizedEmail)
+  const unsubscribeUrl = `https://postgreshackersdigest.dev/unsubscribe?email=${encodeURIComponent(normalizedEmail)}&token=${unsubscribeToken}`
 
   return `
 <!DOCTYPE html>
@@ -579,7 +592,7 @@ function createEmailContent(subscriber: Subscriber, summary: WeeklySummary): str
       <p>This summary was generated using AI and may not capture all nuances of the original discussions.</p>
       <p>Source: PostgreSQL Hackers Mailing List</p>
       <div class="unsubscribe">
-        <a href="https://postgreshackersdigest.dev/unsubscribe?email=${encodeURIComponent(subscriber.email)}">Unsubscribe</a> | 
+        <a href="${unsubscribeUrl}">Unsubscribe</a> |
         <a href="https://postgreshackersdigest.dev">Manage Subscription</a>
       </div>
     </div>
@@ -657,14 +670,29 @@ function escapeHtmlForEmail(text: string): string {
 marked.setOptions({
   gfm: true,          // GitHub Flavored Markdown
   breaks: true,       // Convert line breaks to <br> tags
-  sanitize: false,    // We'll handle security ourselves
   smartLists: true,   // Better list handling
   smartypants: true,  // Smart quotes and typography
 })
 
+// Allowlist used to sanitize AI-generated markdown HTML before it ends up in
+// recipients' inboxes. The summary text comes from an LLM that is summarizing
+// untrusted mailing-list content, so it must never be trusted to be safe HTML.
+const SANITIZE_OPTIONS = {
+  ALLOWED_TAGS: [
+    'a', 'p', 'br', 'hr', 'div', 'span',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'strong', 'b', 'em', 'i', 'u', 'code', 'pre', 'blockquote',
+    'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+    'img',
+  ],
+  ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class', 'data-tag-source', 'style', 'src', 'alt', 'width', 'height'],
+  ALLOWED_URI_REGEXP: /^(?:https?:|mailto:|#)/i,
+  ALLOW_DATA_ATTR: false,
+}
+
 function convertMarkdownToHtml(markdown: string): string {
   if (!markdown) return ''
-  
+
   // Protect tags container before markdown processing (same as website)
   const tagsContainerRegex = /<div class="tags-container">[\s\S]*?<\/div>/gi
   const tagsContainers: string[] = []
@@ -673,19 +701,22 @@ function convertMarkdownToHtml(markdown: string): string {
     tagsContainers.push(match)
     return `<!--TAGS_CONTAINER_PLACEHOLDER_${tagsIndex++}-->`
   })
-  
+
   // Use marked library for reliable markdown conversion
   let html = marked(protectedMarkdown) as string
-  
-  // Restore protected tags containers
+
+  // Restore protected tags containers (these are server-built, safe to inline)
   tagsContainers.forEach((tags, index) => {
     const placeholder = `<!--TAGS_CONTAINER_PLACEHOLDER_${index}-->`
     html = html.split(placeholder).join(tags)
   })
-  
-  // Add target="_blank" to external links for email compatibility
-  html = html.replace(/<a href="([^"]+)"/g, '<a href="$1" target="_blank"')
-  
+
+  // Sanitize the combined HTML before it leaves the function.
+  html = sanitizeHtml(html, SANITIZE_OPTIONS)
+
+  // Add target="_blank" + rel for safer external link behavior.
+  html = html.replace(/<a href="([^"]+)"/g, '<a href="$1" target="_blank" rel="noopener noreferrer"')
+
   return html
 }
 

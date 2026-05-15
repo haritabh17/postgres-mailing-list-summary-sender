@@ -2,42 +2,58 @@ import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { CheckCircle, XCircle, Mail } from 'lucide-react'
 import { useSubscription } from '../hooks/useSubscription'
+import { UnsubscribeForm } from '../components/UnsubscribeForm'
+
+type Mode = 'pending' | 'form' | 'result'
 
 export function UnsubscribePage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { unsubscribe } = useSubscription()
-  const [result, setResult] = useState<{
-    success: boolean
-    message: string
-  } | null>(null)
+  const { confirmUnsubscribe, requestUnsubscribe } = useSubscription()
+  const [mode, setMode] = useState<Mode>('pending')
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null)
 
   const email = searchParams.get('email')
+  const token = searchParams.get('token')
 
   useEffect(() => {
-    if (email) {
-      handleUnsubscribe(email)
-    } else {
-      setResult({
-        success: false,
-        message: 'Invalid unsubscribe link. No email address provided.'
-      })
+    let cancelled = false
+
+    async function run() {
+      if (email && token) {
+        const r = await confirmUnsubscribe(email, token)
+        if (!cancelled) {
+          setResult(r)
+          setMode('result')
+        }
+        return
+      }
+
+      if (email) {
+        // Legacy link or "I clicked Unsubscribe on the site without a token":
+        // request a confirmation email instead of unsubscribing directly.
+        const r = await requestUnsubscribe(email)
+        if (!cancelled) {
+          setResult(r)
+          setMode('result')
+        }
+        return
+      }
+
+      if (!cancelled) setMode('form')
     }
-  }, [email])
 
-  const handleUnsubscribe = async (emailAddress: string) => {
-    const response = await unsubscribe(emailAddress)
-    setResult({
-      success: response.success,
-      message: response.message
-    })
-  }
+    run()
 
-  const handleBackToHome = () => {
-    navigate('/')
-  }
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email, token])
 
-  if (!result) {
+  const handleBackToHome = () => navigate('/')
+
+  if (mode === 'pending') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-postgres-50 to-blue-50 flex items-center justify-center">
         <div className="max-w-md mx-auto px-4">
@@ -46,11 +62,41 @@ export function UnsubscribePage() {
               <Mail className="h-8 w-8 animate-pulse text-postgres-600" />
             </div>
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Processing unsubscribe request...
+              Processing your request…
             </h2>
-            <p className="text-gray-600">
-              Please wait while we process your unsubscribe request.
-            </p>
+            <p className="text-gray-600">Please wait.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (mode === 'form') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-postgres-50 to-blue-50 flex items-center justify-center">
+        <div className="max-w-md mx-auto px-4 w-full">
+          <div className="card">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Unsubscribe</h2>
+              <p className="text-gray-600">
+                Enter your email and we'll send you a confirmation link to complete the unsubscribe.
+              </p>
+            </div>
+            <UnsubscribeForm
+              onSuccess={(message) => {
+                setResult({ success: true, message })
+                setMode('result')
+              }}
+              onError={(message) => {
+                setResult({ success: false, message })
+                setMode('result')
+              }}
+            />
+            <div className="mt-6 text-center">
+              <button onClick={handleBackToHome} className="text-sm text-postgres-600 hover:underline">
+                Back to Home
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -61,23 +107,13 @@ export function UnsubscribePage() {
     <div className="min-h-screen bg-gradient-to-br from-postgres-50 to-blue-50 flex items-center justify-center">
       <div className="max-w-md mx-auto px-4">
         <div className="card text-center">
-          {result.success ? (
+          {result?.success ? (
             <>
               <div className="flex items-center justify-center mb-4">
                 <CheckCircle className="h-16 w-16 text-green-500" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                Successfully Unsubscribed
-              </h2>
-              <p className="text-gray-600 mb-6">
-                {result.message}
-              </p>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-green-700">
-                  You will no longer receive PostgreSQL Weekly Summary emails. 
-                  You can resubscribe at any time by visiting our homepage.
-                </p>
-              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Done</h2>
+              <p className="text-gray-600 mb-6">{result.message}</p>
             </>
           ) : (
             <>
@@ -85,33 +121,16 @@ export function UnsubscribePage() {
                 <XCircle className="h-16 w-16 text-red-500" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                Unsubscribe Failed
+                We couldn't complete that
               </h2>
-              <p className="text-gray-600 mb-6">
-                {result.message}
-              </p>
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <p className="text-sm text-red-700">
-                  This could happen if the email address was not found in our subscription list 
-                  or if there was a technical issue.
-                </p>
-              </div>
+              <p className="text-gray-600 mb-6">{result?.message}</p>
             </>
           )}
 
           <div className="space-y-3">
-            <button
-              onClick={handleBackToHome}
-              className="w-full btn-primary"
-            >
+            <button onClick={handleBackToHome} className="w-full btn-primary">
               Back to Home
             </button>
-          </div>
-
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <p className="text-xs text-gray-500">
-              If you continue to have issues, please contact support.
-            </p>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createAdminClient } from '../_shared/supabase-admin.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -28,11 +28,7 @@ serve(async (req) => {
       )
     }
 
-    // Initialize Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    const supabaseClient = createAdminClient()
 
     // Call the confirm_subscription function
     const { data, error } = await supabaseClient
@@ -63,7 +59,6 @@ serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           message: result.message,
-          email: result.email
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )

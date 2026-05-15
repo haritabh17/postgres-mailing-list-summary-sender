@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { type SubscriptionResult, type UnsubscribeResult } from '../lib/types'
 
+const NEUTRAL_SUBSCRIBE_MESSAGE =
+  'Please check your inbox for a confirmation email. The link expires in 5 minutes for security.'
+
+const NEUTRAL_UNSUBSCRIBE_REQUEST_MESSAGE =
+  'If this address is on our list, an unsubscribe confirmation email is on its way. Please check your inbox.'
+
 export function useSubscription() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -11,169 +17,99 @@ export function useSubscription() {
     setError(null)
 
     try {
-      // Generate confirmation token
-      const confirmationToken = crypto.randomUUID()
-      const confirmationExpiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes from now
-      
-      // First, check if the email already exists
-      const { data: existingSubscriber, error: selectError } = await supabase
-        .from('subscribers')
-        .select('id, confirmation_status, is_active, confirmation_expires_at')
-        .eq('email', email)
-        .single()
-
-      if (selectError && selectError.code !== 'PGRST116') {
-        // PGRST116 is "not found" error, which is fine
-        throw selectError
-      }
-
-      if (existingSubscriber) {
-        // Email exists, check status
-        if (existingSubscriber.confirmation_status === 'confirmed' && existingSubscriber.is_active) {
-          return {
-            success: false,
-            message: 'This email is already subscribed to our mailing list.',
-            isNewSubscription: false
-          }
-        }
-
-        // Check if there's a pending confirmation that hasn't expired
-        if (existingSubscriber.confirmation_status === 'pending_confirmation' && 
-            existingSubscriber.confirmation_expires_at && 
-            new Date(existingSubscriber.confirmation_expires_at) > new Date()) {
-          return {
-            success: false,
-            message: 'A confirmation email was recently sent to this address. Please check your email and click the confirmation link.',
-            isNewSubscription: false
-          }
-        }
-
-        // Update existing record for re-subscription
-        const { error: updateError } = await supabase
-          .from('subscribers')
-          .update({ 
-            confirmation_token: confirmationToken,
-            confirmation_expires_at: confirmationExpiresAt.toISOString(),
-            confirmation_status: 'pending_confirmation',
-            is_active: false,
-            subscribed_at: new Date().toISOString() // Update subscription timestamp
-          })
-          .eq('id', existingSubscriber.id)
-
-        if (updateError) {
-          throw updateError
-        }
-      } else {
-        // Create new subscriber record
-        const { error: insertError } = await supabase
-          .from('subscribers')
-          .insert([{ 
-            email,
-            confirmation_token: confirmationToken,
-            confirmation_expires_at: confirmationExpiresAt.toISOString(),
-            confirmation_status: 'pending_confirmation',
-            is_active: false
-          }])
-
-        if (insertError) {
-          throw insertError
-        }
-      }
-
-      // Send confirmation email
-      const confirmationUrl = `${window.location.origin}/confirm?token=${confirmationToken}`
-      
-      const { error: emailError } = await supabase.functions.invoke('send-confirmation-email', {
-        body: {
-          email,
-          confirmationToken,
-          confirmationUrl
-        }
+      const { data, error: invokeError } = await supabase.functions.invoke('subscribe', {
+        body: { email, siteUrl: window.location.origin },
       })
 
-      if (emailError) {
-        console.error('Failed to send confirmation email:', emailError)
-        // Still return success since the subscription was created
+      if (invokeError) {
+        const safeApiError =
+          data && typeof data === 'object' && 'error' in data && typeof (data as any).error === 'string'
+            ? (data as any).error
+            : null
+        const message = safeApiError || 'Subscription temporarily unavailable. Please try again.'
+        setError(message)
+        return { success: false, message, isNewSubscription: false }
       }
 
-      return {
-        success: true,
-        message: 'Please check your email and click the confirmation link to complete your subscription. The link will expire in 5 minutes for security.',
-        isNewSubscription: true
-      }
+      const message = (data && (data as any).message) || NEUTRAL_SUBSCRIBE_MESSAGE
+      return { success: true, message, isNewSubscription: true }
     } catch (err: any) {
-      const errorMessage = err.message || 'An unexpected error occurred. Please try again.'
-      setError(errorMessage)
-      return {
-        success: false,
-        message: errorMessage,
-        isNewSubscription: false
-      }
+      const message = err?.message || 'An unexpected error occurred. Please try again.'
+      setError(message)
+      return { success: false, message, isNewSubscription: false }
     } finally {
       setIsLoading(false)
     }
   }
 
-  const unsubscribe = async (email: string): Promise<UnsubscribeResult> => {
+  // Step 1 of the unsubscribe flow: request a confirmation email.
+  const requestUnsubscribe = async (email: string): Promise<UnsubscribeResult> => {
     setIsLoading(true)
     setError(null)
 
     try {
-      // Update subscriber to inactive status (don't delete the record)
-      const { data, error: updateError } = await supabase
-        .from('subscribers')
-        .update({ 
-          is_active: false,
-          confirmation_status: 'unsubscribed',
-          confirmation_token: null, // Clear any pending confirmation
-          confirmation_expires_at: null,
-          confirmed_at: null // Clear confirmation timestamp for potential re-subscription
-        })
-        .eq('email', email)
-        .select()
+      const { data, error: invokeError } = await supabase.functions.invoke('request-unsubscribe', {
+        body: { email, siteUrl: window.location.origin },
+      })
 
-      if (updateError) {
-        throw updateError
-      }
-
-      if (!data || data.length === 0) {
-        return {
-          success: false,
-          message: 'Email not found in our subscription list.'
-        }
+      if (invokeError) {
+        const safeApiError =
+          data && typeof data === 'object' && 'error' in data && typeof (data as any).error === 'string'
+            ? (data as any).error
+            : null
+        const message = safeApiError || 'Service temporarily unavailable. Please try again.'
+        setError(message)
+        return { success: false, message }
       }
 
       return {
         success: true,
-        message: 'Successfully unsubscribed. You will no longer receive weekly summaries. You can resubscribe anytime by visiting our homepage.'
+        message: (data && (data as any).message) || NEUTRAL_UNSUBSCRIBE_REQUEST_MESSAGE,
       }
     } catch (err: any) {
-      const errorMessage = err.message || 'An unexpected error occurred. Please try again.'
-      setError(errorMessage)
-      return {
-        success: false,
-        message: errorMessage
-      }
+      const message = err?.message || 'An unexpected error occurred. Please try again.'
+      setError(message)
+      return { success: false, message }
     } finally {
       setIsLoading(false)
     }
   }
 
-  const checkSubscription = async (email: string): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase
-        .from('subscribers')
-        .select('is_active, confirmation_status')
-        .eq('email', email)
-        .single()
+  // Step 2: confirm the unsubscribe using the link emailed to the user.
+  const confirmUnsubscribe = async (email: string, token: string): Promise<UnsubscribeResult> => {
+    setIsLoading(true)
+    setError(null)
 
-      if (error || !data) {
-        return false
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+
+      const url = `${supabaseUrl}/functions/v1/confirm-unsubscribe?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const message = (data && (data as any).error) || 'Unsubscribe link is invalid or has expired.'
+        setError(message)
+        return { success: false, message }
       }
 
-      return data.is_active && data.confirmation_status === 'confirmed'
-    } catch {
-      return false
+      return {
+        success: true,
+        message: (data && (data as any).message) || 'You have been unsubscribed.',
+      }
+    } catch (err: any) {
+      const message = err?.message || 'An unexpected error occurred. Please try again.'
+      setError(message)
+      return { success: false, message }
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -182,45 +118,42 @@ export function useSubscription() {
     setError(null)
 
     try {
-      // Call the confirmation function directly with the token as a URL parameter
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
-      
-      const response = await fetch(`${supabaseUrl}/functions/v1/confirm-subscription?token=${encodeURIComponent(token)}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'Content-Type': 'application/json',
-        }
-      })
 
-      const data = await response.json()
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/confirm-subscription?token=${encodeURIComponent(token)}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${supabaseAnonKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || 'Confirmation failed')
+        throw new Error((data && (data as any).error) || 'Confirmation failed')
       }
 
-      if (data.success) {
+      if ((data as any).success) {
         return {
           success: true,
-          message: data.message,
-          isNewSubscription: true
-        }
-      } else {
-        return {
-          success: false,
-          message: data.error || 'Confirmation failed',
-          isNewSubscription: false
+          message: (data as any).message,
+          isNewSubscription: true,
         }
       }
-    } catch (err: any) {
-      const errorMessage = err.message || 'An unexpected error occurred. Please try again.'
-      setError(errorMessage)
       return {
         success: false,
-        message: errorMessage,
-        isNewSubscription: false
+        message: (data as any).error || 'Confirmation failed',
+        isNewSubscription: false,
       }
+    } catch (err: any) {
+      const message = err?.message || 'An unexpected error occurred. Please try again.'
+      setError(message)
+      return { success: false, message, isNewSubscription: false }
     } finally {
       setIsLoading(false)
     }
@@ -228,10 +161,10 @@ export function useSubscription() {
 
   return {
     subscribe,
-    unsubscribe,
-    checkSubscription,
+    requestUnsubscribe,
+    confirmUnsubscribe,
     confirmSubscription,
     isLoading,
-    error
+    error,
   }
 }

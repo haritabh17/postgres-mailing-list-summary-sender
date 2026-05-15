@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireServiceRole } from '../_shared/auth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,6 +17,11 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // Internal-only: spam-relay protection. Public signup goes through the
+  // `subscribe` edge function, which talks to Resend with the service role.
+  const authError = requireServiceRole(req)
+  if (authError) return authError
 
   try {
     const { email, confirmationToken, confirmationUrl }: ConfirmationEmailRequest = await req.json()

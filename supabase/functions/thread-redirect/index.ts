@@ -1,10 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+import { corsHeaders } from '../_shared/cors.ts'
+import { isAllowedRedirectUrl } from '../_shared/redirect-url.ts'
 
 serve(async (req) => {
   const { method } = req
@@ -53,6 +50,11 @@ serve(async (req) => {
     const targetUrl = data?.thread_url
 
     if (!targetUrl) {
+      return new Response('redirect not found', { status: 404, headers: corsHeaders })
+    }
+
+    if (!isAllowedRedirectUrl(targetUrl)) {
+      console.error('thread-redirect: disallowed target URL', targetUrl)
       return new Response('redirect not found', { status: 404, headers: corsHeaders })
     }
 

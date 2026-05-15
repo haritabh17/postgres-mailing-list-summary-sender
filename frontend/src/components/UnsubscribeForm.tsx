@@ -10,8 +10,8 @@ interface UnsubscribeFormProps {
 }
 
 export function UnsubscribeForm({ onSuccess, onError }: UnsubscribeFormProps) {
-  const { unsubscribe, isLoading } = useSubscription()
-  
+  const { requestUnsubscribe, isLoading } = useSubscription()
+
   const {
     register,
     handleSubmit,
@@ -22,8 +22,8 @@ export function UnsubscribeForm({ onSuccess, onError }: UnsubscribeFormProps) {
   })
 
   const onSubmit = async (data: UnsubscribeFormData) => {
-    const result = await unsubscribe(data.email)
-    
+    const result = await requestUnsubscribe(data.email)
+
     if (result.success) {
       onSuccess(result.message)
       reset()
