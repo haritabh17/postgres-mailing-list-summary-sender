@@ -251,9 +251,10 @@ function parseEmailContentFromHtml(html: string, threadUrl: string): MailThreadC
     // Extract subject from table structure (td element after th with "Subject")
     let subject = 'Unknown Subject'
 
-    const tableSubjectMatch = html.match(/<th[^>]*>Subject<\/th>\s*<td[^>]*>([^<]+)<\/td>/i)
+    // postgresql.org renders headers as "Subject:" (with colon), postgrespro as "Subject"
+    const tableSubjectMatch = html.match(/<th[^>]*>Subject:?<\/th>\s*<td[^>]*>([^<]+)<\/td>/i)
     if (tableSubjectMatch) {
-      subject = tableSubjectMatch[1].trim()
+      subject = he.decode(tableSubjectMatch[1]).trim()
     } else {
       const h1SubjectMatch = html.match(/<h1[^>]*class="[^"]*subject[^"]*"[^>]*>([^<]+)<\/h1>/i)
       if (h1SubjectMatch) {
@@ -274,19 +275,18 @@ function parseEmailContentFromHtml(html: string, threadUrl: string): MailThreadC
     // Extract author from table structure (td element after th with "From")
     let authorEmail: string | null = null
     
-    // Find author in table structure: <th>From</th> followed by <td>content</td>
-    const tableFromMatch = html.match(/<th[^>]*>From<\/th>\s*<td[^>]*>([^<]+)<\/td>/i)
+    // Find author in table structure: <th>From</th> or <th>From:</th> followed by <td>content</td>
+    const tableFromMatch = html.match(/<th[^>]*>From:?<\/th>\s*<td[^>]*>([\s\S]*?)<\/td>/i)
     if (tableFromMatch) {
-      const authorText = tableFromMatch[1].trim()
-      
-      // Try to extract email from the author text if it contains one
+      // Decode entities, then strip any tags. postgresql.org renders the value as
+      // "Name &lt;user(at)domain(dot)com&gt;" with the email obfuscated.
+      const authorText = he.decode(tableFromMatch[1]).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+
+      // Prefer the display name when the value is "Name <email>"
+      const nameMatch = authorText.match(/^([^<]+?)\s*</)
+      // Otherwise fall back to a plain email address if one is present
       const emailMatch = authorText.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/)
-      if (emailMatch) {
-        authorEmail = emailMatch[1]
-      } else {
-        // If no email found, use the full author text
-        authorEmail = authorText
-      }
+      authorEmail = nameMatch?.[1]?.trim() || emailMatch?.[1] || authorText || null
     }
 
     // Extract main email content (PostgreSQL.org or PostgresPro archive layouts)
@@ -308,8 +308,8 @@ function parseEmailContentFromHtml(html: string, threadUrl: string): MailThreadC
     // Extract date from table structure (td element after th with "Date")
     let postedAt = new Date().toISOString()
     
-    // Find date in table structure: <th>Date</th> followed by <td>content</td>
-    const tableDateMatch = html.match(/<th[^>]*>Date<\/th>\s*<td[^>]*>([^<]+)<\/td>/i)
+    // Find date in table structure: <th>Date</th> or <th>Date:</th> followed by <td>content</td>
+    const tableDateMatch = html.match(/<th[^>]*>Date:?<\/th>\s*<td[^>]*>([^<]+)<\/td>/i)
     if (tableDateMatch) {
       const dateText = tableDateMatch[1].trim()
       try {
