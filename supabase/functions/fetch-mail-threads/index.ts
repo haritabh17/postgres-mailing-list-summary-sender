@@ -1,7 +1,16 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import he from 'https://esm.sh/he@1.2.0'
 import { requireServiceRole } from '../_shared/auth.ts'
 import { corsHeaders } from '../_shared/cors.ts'
+
+const ARCHIVE_BASE_URL = 'https://www.postgresql.org'
+const ARCHIVE_LIST = `${ARCHIVE_BASE_URL}/list/pgsql-hackers`
+
+const MONTH_NAMES: Record<string, number> = {
+  January: 0, February: 1, March: 2, April: 3, May: 4, June: 5,
+  July: 6, August: 7, September: 8, October: 9, November: 10, December: 11,
+}
 
 interface MailThread {
   url: string
@@ -24,10 +33,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get the last 7 days date range
+    // Last 7 days, normalized to whole-day boundaries
     const endDate = new Date()
+    endDate.setHours(23, 59, 59, 999)
     const startDate = new Date()
-    startDate.setDate(endDate.getDate() - 7)
+    startDate.setDate(startDate.getDate() - 7)
+    startDate.setHours(0, 0, 0, 0)
 
     console.log(`Fetching mail threads from ${startDate.toISOString()} to ${endDate.toISOString()}`)
 
@@ -185,178 +196,201 @@ serve(async (req) => {
   }
 })
 
+const MAX_ARCHIVE_PAGES = 15
+const PAGE_FETCH_TIMEOUT_MS = 30000
+const TOTAL_FETCH_TIMEOUT_MS = 120000
+
 async function fetchMailThreadsForDateRange(startDate: Date, endDate: Date): Promise<MailThread[]> {
-  const threads: MailThread[] = []
-  
-  // Get unique year-month combinations for the date range
-  const monthsToFetch = getMonthsInRange(startDate, endDate)
-  
-  for (const { year, month } of monthsToFetch) {
-    try {
-      console.log(`Fetching threads for ${year}-${month.toString().padStart(2, '0')}`)
-      const monthThreads = await fetchMonthThreads(year, month, startDate, endDate)
-      threads.push(...monthThreads)
-    } catch (error) {
-      console.error(`Error fetching threads for ${year}-${month}:`, error)
-    }
-  }
-  
-  return threads
-}
+  const sinceStamp = formatSinceTimestamp(startDate)
+  let pageUrl: string | null = `${ARCHIVE_LIST}/since/${sinceStamp}/`
 
-async function fetchMonthThreads(year: number, month: number, startDate: Date, endDate: Date): Promise<MailThread[]> {
-  const monthStr = month.toString().padStart(2, '0')
-  const url = `https://www.postgrespro.com/list/pgsql-hackers/${year}-${monthStr}`
-  
-  console.log(`Fetching from: ${url}`)
-  
+  const threadsByUrl = new Map<string, MailThread>()
+  const visitedUrls = new Set<string>()
+  let pageNum = 0
+
+  const controller = new AbortController()
+  const totalTimeoutId = setTimeout(() => controller.abort(), TOTAL_FETCH_TIMEOUT_MS)
+
   try {
-    console.log(`🌐 Attempting to fetch from: ${url}`)
-    
-    // Add timeout to prevent hanging (30 seconds)
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000)
-    
-    try {
-      const response = await fetch(url, { signal: controller.signal })
-      clearTimeout(timeoutId)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    while (pageUrl && pageNum < MAX_ARCHIVE_PAGES) {
+      const normalizedUrl = normalizeArchivePageUrl(pageUrl)
+      if (visitedUrls.has(normalizedUrl)) {
+        console.log(`Stopping pagination: already visited ${normalizedUrl}`)
+        break
       }
-      
-      console.log(`✅ Successfully fetched ${url} (status: ${response.status})`)
-      const html = await response.text()
-      console.log(`📄 Received HTML content (${html.length} characters)`)
-      
-      const threads = parseMailThreadsFromHtml(html, startDate, endDate, year, month)
-      console.log(`✅ Parsed ${threads.length} threads from ${year}-${month}`)
-      
-      return threads
-    } catch (fetchError) {
-      clearTimeout(timeoutId)
-      if (fetchError.name === 'AbortError') {
-        throw new Error(`Request timeout after 30 seconds for ${url}`)
+      visitedUrls.add(normalizedUrl)
+      pageNum++
+
+      console.log(`Fetching archive page ${pageNum}: ${normalizedUrl}`)
+      const html = await fetchArchivePage(normalizedUrl, controller.signal)
+      console.log(`Received HTML content (${html.length} characters)`)
+
+      const pageThreads = parsePostgresqlOrgArchivePage(html, startDate, endDate)
+      for (const thread of pageThreads) {
+        threadsByUrl.set(thread.url, thread)
       }
-      throw fetchError
+      console.log(`Parsed ${pageThreads.length} threads on page ${pageNum} (${threadsByUrl.size} unique total)`)
+
+      const dayRange = getArchivePageDayRange(html)
+      if (dayRange?.min && dayRange.min > endDate) {
+        console.log(`Stopping pagination: page starts at ${dayRange.min.toISOString()}, after window end`)
+        break
+      }
+
+      const nextPath = extractNextSincePath(html)
+      if (!nextPath) {
+        console.log('Stopping pagination: no Next link')
+        break
+      }
+
+      const nextUrl = `${ARCHIVE_BASE_URL}${nextPath}/`
+      if (normalizeArchivePageUrl(nextUrl) === normalizedUrl) {
+        console.log('Stopping pagination: Next link points to current page')
+        break
+      }
+
+      pageUrl = nextUrl
     }
+
+    if (pageNum >= MAX_ARCHIVE_PAGES) {
+      console.warn(`Stopped pagination after ${MAX_ARCHIVE_PAGES} pages (safety limit)`)
+    }
+
+    const threads = Array.from(threadsByUrl.values())
+    console.log(`Fetched ${threads.length} unique threads across ${pageNum} page(s)`)
+    return threads
   } catch (error) {
-    console.error(`❌ Failed to fetch ${url}:`, error)
-    console.error(`❌ Error details:`, error.message)
-    return []
+    if (error.name === 'AbortError') {
+      throw new Error(`Archive fetch timed out after ${TOTAL_FETCH_TIMEOUT_MS / 1000} seconds`)
+    }
+    throw error
+  } finally {
+    clearTimeout(totalTimeoutId)
   }
 }
 
-function parseMailThreadsFromHtml(html: string, startDate: Date, endDate: Date, year: number, month: number): MailThread[] {
-  const threads: MailThread[] = []
-  
-  console.log(`Starting to parse HTML for ${year}-${month}, looking for dates between ${startDate.toDateString()} and ${endDate.toDateString()}`)
-  
-  // Extract all mail thread links first
-  const linkPattern = /<a[^>]+href="(\/list\/id\/[^"]+)"[^>]*>([^<]+)<\/a>/g
-  const allLinks = []
-  
-  let linkMatch
-  while ((linkMatch = linkPattern.exec(html)) !== null) {
-    const [fullMatch, href, subject] = linkMatch
-    allLinks.push({
-      href: href,
-      subject: subject.trim(),
-      index: linkMatch.index,
-      fullMatch: fullMatch
-    })
+async function fetchArchivePage(url: string, parentSignal: AbortSignal): Promise<string> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), PAGE_FETCH_TIMEOUT_MS)
+
+  const onParentAbort = () => controller.abort()
+  parentSignal.addEventListener('abort', onParentAbort)
+
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText} for ${url}`)
+    }
+    return await response.text()
+  } finally {
+    clearTimeout(timeoutId)
+    parentSignal.removeEventListener('abort', onParentAbort)
   }
-  
-  console.log(`Found ${allLinks.length} total mail thread links`)
-  
-  // Now find day headers to associate links with dates
-  // Look for patterns like "19 September" or "20 September" in the HTML
-  const dayPattern = /(\d{1,2})\s+(September|October|November|December|January|February|March|April|May|June|July|August)/gi
-  
-  const dayHeaders = []
-  let dayMatch
-  
-  while ((dayMatch = dayPattern.exec(html)) !== null) {
-    const dayNum = parseInt(dayMatch[1])
-    const monthName = dayMatch[2]
-    
-    // Only consider valid days and current month
-    if (dayNum >= 1 && dayNum <= 31) {
-      dayHeaders.push({
-        day: dayNum,
-        monthName: monthName,
-        index: dayMatch.index
+}
+
+function normalizeArchivePageUrl(url: string): string {
+  const parsed = new URL(url)
+  parsed.pathname = parsed.pathname.replace(/\/$/, '')
+  return parsed.toString()
+}
+
+function extractNextSincePath(html: string): string | null {
+  const match = html.match(
+    /<a href="(\/list\/pgsql-hackers\/since\/\d+)"[^>]*>\s*Next\s*<\/a>/i,
+  )
+  return match ? match[1] : null
+}
+
+function getArchivePageDayRange(html: string): { min: Date; max: Date } | null {
+  const h2Pattern = /<h2>([^<]+)<\/h2>/g
+  const days: Date[] = []
+  let h2Match
+
+  while ((h2Match = h2Pattern.exec(html)) !== null) {
+    if (h2Match[1] === 'Quick Links') continue
+    const day = parseArchiveDayHeader(h2Match[1])
+    if (day) days.push(day)
+  }
+
+  if (days.length === 0) return null
+  return {
+    min: new Date(Math.min(...days.map((d) => d.getTime()))),
+    max: new Date(Math.max(...days.map((d) => d.getTime()))),
+  }
+}
+
+function formatSinceTimestamp(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}${month}${day}0000`
+}
+
+function parsePostgresqlOrgArchivePage(html: string, startDate: Date, endDate: Date): MailThread[] {
+  const threads: MailThread[] = []
+  const sections: Array<{ label: string; index: number }> = []
+
+  const h2Pattern = /<h2>([^<]+)<\/h2>/g
+  let h2Match
+  while ((h2Match = h2Pattern.exec(html)) !== null) {
+    if (h2Match[1] === 'Quick Links') continue
+    sections.push({ label: h2Match[1], index: h2Match.index })
+  }
+
+  console.log(`Found ${sections.length} day sections`)
+
+  const rowPattern =
+    /<tr>\s*<th scope="row">\s*<a href="(\/message-id\/[^"]+)">([\s\S]*?)<\/a>\s*<\/th>\s*<td>([^<]*)<\/td>\s*<td>([^<]*)<\/td>\s*<\/tr>/g
+
+  for (let i = 0; i < sections.length; i++) {
+    const sectionStart = sections[i].index
+    const sectionEnd = i + 1 < sections.length ? sections[i + 1].index : html.length
+    const chunk = html.slice(sectionStart, sectionEnd)
+    const dayDate = parseArchiveDayHeader(sections[i].label)
+    if (!dayDate) {
+      console.warn(`Could not parse day header: ${sections[i].label}`)
+      continue
+    }
+
+    let rowMatch
+    while ((rowMatch = rowPattern.exec(chunk)) !== null) {
+      const [, href, rawSubject, , timeText] = rowMatch
+      const [hours, minutes] = timeText.trim().split(':').map(Number)
+      const postDate = new Date(dayDate)
+      postDate.setHours(hours || 0, minutes || 0, 0, 0)
+
+      if (postDate < startDate || postDate > endDate) {
+        continue
+      }
+
+      const fullUrl = `${ARCHIVE_BASE_URL}${href}`
+      const subject = he.decode(rawSubject.replace(/\s+/g, ' ').trim())
+
+      threads.push({
+        url: fullUrl,
+        subject,
+        post_date: postDate,
+        thread_id: threadIdFromArchiveUrl(href),
       })
     }
   }
-  
-  console.log(`Found ${dayHeaders.length} day headers:`, dayHeaders.map(d => `${d.day} ${d.monthName}`))
-  
-  // Associate each link with the nearest preceding day header
-  for (const link of allLinks) {
-    let associatedDay = 1 // Default day
-    
-    // Find the most recent day header before this link
-    for (let i = dayHeaders.length - 1; i >= 0; i--) {
-      if (dayHeaders[i].index < link.index) {
-        associatedDay = dayHeaders[i].day
-        break
-      }
-    }
-    
-    // Create date for this thread
-    const threadDate = new Date(year, month - 1, associatedDay)
-    
-    // Skip if outside our date range
-    if (threadDate < startDate || threadDate > endDate) {
-      console.log(`Skipping thread on day ${associatedDay} (outside date range)`)
-      continue
-    }
-    
-    // Extract time and author from the context around the link
-    const contextStart = Math.max(0, link.index - 150)
-    const contextEnd = Math.min(html.length, link.index + 300)
-    const context = html.slice(contextStart, contextEnd)
-    
-    // Look for time pattern (HH:MM) before the link
-    const timeMatches = context.match(/(\d{2}:\d{2})/g)
-    const time = timeMatches ? timeMatches[timeMatches.length - 1] : '12:00'
-    
-    // Create precise thread date with time
-    const [hours, minutes] = time.split(':').map(Number)
-    const preciseDatetime = new Date(year, month - 1, associatedDay, hours, minutes)
-    
-    // Construct full URL
-    const fullUrl = `https://www.postgrespro.com${link.href}`
-    
-    threads.push({
-      url: fullUrl,
-      subject: link.subject,
-      post_date: preciseDatetime,
-      thread_id: `${year}-${month}-${associatedDay}-${time.replace(':', '')}-${threads.length}`
-    })
-    
-    console.log(`Thread on ${associatedDay}/${month} at ${time}: "${link.subject}"`)
-  }
-  
-  console.log(`Parsed ${threads.length} threads from ${year}-${month} for date range`)
+
   return threads
 }
 
-function getMonthsInRange(startDate: Date, endDate: Date): Array<{ year: number, month: number }> {
-  const months: Array<{ year: number, month: number }> = []
-  const current = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
-  const end = new Date(endDate.getFullYear(), endDate.getMonth(), 1)
-  
-  while (current <= end) {
-    months.push({
-      year: current.getFullYear(),
-      month: current.getMonth() + 1
-    })
-    current.setMonth(current.getMonth() + 1)
-  }
-  
-  return months
+function parseArchiveDayHeader(label: string): Date | null {
+  const match = label.match(/([A-Za-z]+)\s+(\d{1,2}),\s+(\d{4})/)
+  if (!match) return null
+
+  const month = MONTH_NAMES[match[1]]
+  if (month === undefined) return null
+
+  return new Date(parseInt(match[3], 10), month, parseInt(match[2], 10))
+}
+
+function threadIdFromArchiveUrl(href: string): string {
+  const match = href.match(/\/message-id\/(.+)$/)
+  return match ? decodeURIComponent(match[1]) : `thread-${Date.now()}`
 }
 
 function getWeekStart(date: Date): Date {

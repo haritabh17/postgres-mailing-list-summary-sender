@@ -192,7 +192,7 @@ async function fetchThreadContent(threadUrl: string): Promise<MailThreadContent 
       const html = await response.text()
       console.log(`📄 INFO: Received HTML content (${html.length} characters)`)
 
-      // Extract email content from the PostgresPro mail archive page
+      // Extract email content from PostgreSQL.org or PostgresPro archive pages
       const content = parseEmailContentFromHtml(html, threadUrl)
       
       if (content) {
@@ -230,31 +230,43 @@ function cleanEmailContent(content: string): string {
   return cleaned
 }
 
+function htmlToPlainText(html: string): string {
+  return cleanEmailContent(
+    he.decode(
+      html
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n\n')
+        .replace(/<[^>]+>/g, '')
+    )
+  )
+}
+
 function parseEmailContentFromHtml(html: string, threadUrl: string): MailThreadContent | null {
   try {
     console.log(`📝 INFO: Parsing email content from HTML`)
 
-    // Extract message ID from URL (e.g., from /list/id/abc123@domain.com)
-    const messageIdMatch = threadUrl.match(/\/list\/id\/([^\/]+)$/)
-    const messageId = messageIdMatch ? messageIdMatch[1] : `extracted-${Date.now()}`
+    const messageIdMatch = threadUrl.match(/\/(?:list\/id|message-id)\/([^/?#]+)/)
+    const messageId = messageIdMatch ? decodeURIComponent(messageIdMatch[1]) : `extracted-${Date.now()}`
 
     // Extract subject from table structure (td element after th with "Subject")
     let subject = 'Unknown Subject'
-    
-    // First try to find subject in table structure: <th>Subject</th> followed by <td>content</td>
+
     const tableSubjectMatch = html.match(/<th[^>]*>Subject<\/th>\s*<td[^>]*>([^<]+)<\/td>/i)
     if (tableSubjectMatch) {
       subject = tableSubjectMatch[1].trim()
     } else {
-      // Fallback to title tag
-      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i)
-      if (titleMatch) {
-        subject = titleMatch[1].trim()
+      const h1SubjectMatch = html.match(/<h1[^>]*class="[^"]*subject[^"]*"[^>]*>([^<]+)<\/h1>/i)
+      if (h1SubjectMatch) {
+        subject = h1SubjectMatch[1].trim()
       } else {
-        // Final fallback to h1/h2 tags
-        const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
-        if (h1Match) {
-          subject = h1Match[1].trim()
+        const titleMatch = html.match(/<title[^>]*>(?:PostgreSQL:\s*)?([^<]+)<\/title>/i)
+        if (titleMatch) {
+          subject = titleMatch[1].trim()
+        } else {
+          const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i)
+          if (h1Match) {
+            subject = h1Match[1].trim()
+          }
         }
       }
     }
@@ -277,13 +289,17 @@ function parseEmailContentFromHtml(html: string, threadUrl: string): MailThreadC
       }
     }
 
-    // Extract main email content from message-body div
+    // Extract main email content (PostgreSQL.org or PostgresPro archive layouts)
     let content = ''
-    
-    // Find content in div with class "message-body" and extract text from <pre> tag
+
     const messageBodyMatch = html.match(/<div[^>]*class="[^"]*message-body[^"]*"[^>]*>[\s\S]*?<pre[^>]*>([\s\S]*?)<\/pre>[\s\S]*?<\/div>/i)
     if (messageBodyMatch) {
       content = cleanEmailContent(messageBodyMatch[1])
+    } else {
+      const messageContentMatch = html.match(/<div class="message-content">([\s\S]*?)<\/div>\s*(?:<h3 class="messages"|<form)/i)
+      if (messageContentMatch) {
+        content = htmlToPlainText(messageContentMatch[1])
+      }
     }
 
     // Extract thread ID from message ID or URL
