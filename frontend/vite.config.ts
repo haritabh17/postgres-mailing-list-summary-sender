@@ -19,6 +19,22 @@ export default defineConfig(({ mode }) => {
               target: functionsBase,
               changeOrigin: true,
               rewrite: () => '/rss',
+              // Supabase's gateway sanitizes HTML responses from edge functions
+              // (content-type becomes text/plain + a sandbox CSP). The body is
+              // intact, so restore the right headers based on who's asking —
+              // mirrors what api/rss.ts does in production.
+              configure: (proxy) => {
+                proxy.on('proxyRes', (proxyRes, req) => {
+                  delete proxyRes.headers['content-security-policy']
+                  proxyRes.headers['cache-control'] = 'no-store'
+                  const isBrowser =
+                    req.headers['sec-fetch-dest'] === 'document' ||
+                    (req.headers['accept'] || '').includes('text/html')
+                  proxyRes.headers['content-type'] = isBrowser
+                    ? 'text/html; charset=utf-8'
+                    : 'application/rss+xml; charset=utf-8'
+                })
+              },
             },
             '/sitemap.xml': {
               target: functionsBase,

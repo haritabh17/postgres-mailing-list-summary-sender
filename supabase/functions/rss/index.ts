@@ -1,8 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { renderFeedLandingHtml, type FeedLandingItem } from './landing.ts'
 
 const SITE_URL = 'https://www.postgreshackersdigest.dev'
+const FEED_URL = `${SITE_URL}/rss.xml`
+
+// Browsers navigating to the feed URL get a styled HTML landing page;
+// feed readers (which never send these headers) get the raw XML.
+function isBrowserNavigation(req: Request): boolean {
+  if (req.headers.get('sec-fetch-dest') === 'document') return true
+  return (req.headers.get('accept') || '').includes('text/html')
+}
 
 function escapeXml(text: string): string {
   return text
@@ -50,22 +59,40 @@ serve(async (req) => {
 
     const lastBuild = summaries?.[0]?.created_at || new Date().toISOString()
 
-    const items = (summaries || []).map((s) => {
-      const title = `Week of ${formatDateWithOrdinal(s.week_end_date)}`
-      const link = `${SITE_URL}/summary/${s.id}`
-      const overview = s.top_discussions?.[0]?.summary_brief ||
+    const feedItems: FeedLandingItem[] = (summaries || []).map((s) => ({
+      title: `Week of ${formatDateWithOrdinal(s.week_end_date)}`,
+      link: `${SITE_URL}/summary/${s.id}`,
+      isoDate: s.created_at,
+      description:
+        s.top_discussions?.[0]?.summary_brief ||
         s.summary_content?.substring(0, 300) ||
-        `${s.total_posts} posts from ${s.total_participants} participants`
-      const description = escapeXml(overview)
+        `${s.total_posts} posts from ${s.total_participants} participants`,
+      posts: s.total_posts,
+      participants: s.total_participants,
+    }))
 
-      return `    <item>
-      <title>${escapeXml(title)}</title>
-      <link>${link}</link>
-      <guid isPermaLink="true">${link}</guid>
-      <pubDate>${formatRfc822(s.created_at)}</pubDate>
-      <description>${description}</description>
-    </item>`
-    }).join('\n')
+    if (isBrowserNavigation(req)) {
+      const html = renderFeedLandingHtml(feedItems.slice(0, 10), {
+        feedUrl: FEED_URL,
+        siteUrl: SITE_URL,
+      })
+      return new Response(html, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'public, max-age=3600',
+          'Vary': 'Accept, Sec-Fetch-Dest',
+        },
+      })
+    }
+
+    const items = feedItems.map((item) => `    <item>
+      <title>${escapeXml(item.title)}</title>
+      <link>${item.link}</link>
+      <guid isPermaLink="true">${item.link}</guid>
+      <pubDate>${formatRfc822(item.isoDate)}</pubDate>
+      <description>${escapeXml(item.description)}</description>
+    </item>`).join('\n')
 
     const feed = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
@@ -85,6 +112,7 @@ ${items}
         ...corsHeaders,
         'Content-Type': 'application/rss+xml; charset=utf-8',
         'Cache-Control': 'public, max-age=3600',
+        'Vary': 'Accept, Sec-Fetch-Dest',
       },
     })
   } catch (error) {
