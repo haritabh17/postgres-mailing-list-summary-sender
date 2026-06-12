@@ -22,50 +22,28 @@ export function UnsubscribePage() {
     async function run() {
       if (email && token) {
         const r = await confirmUnsubscribe(email, token)
-        if (!cancelled) {
-          setResult(r)
-          setMode('result')
-        }
+        if (!cancelled) { setResult(r); setMode('result') }
         return
       }
-
       if (email) {
-        // Legacy link or "I clicked Unsubscribe on the site without a token":
-        // request a confirmation email instead of unsubscribing directly.
         const r = await requestUnsubscribe(email)
-        if (!cancelled) {
-          setResult(r)
-          setMode('result')
-        }
+        if (!cancelled) { setResult(r); setMode('result') }
         return
       }
-
       if (!cancelled) setMode('form')
     }
 
     run()
-
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { cancelled = true }
   }, [email, token])
-
-  const handleBackToHome = () => navigate('/')
 
   if (mode === 'pending') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-postgres-50 to-blue-50 flex items-center justify-center">
-        <div className="max-w-md mx-auto px-4">
-          <div className="card text-center">
-            <div className="flex items-center justify-center mb-4">
-              <Mail className="h-8 w-8 animate-pulse text-postgres-600" />
-            </div>
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Processing your request…
-            </h2>
-            <p className="text-gray-600">Please wait.</p>
-          </div>
+      <div className="max-w-md mx-auto px-4 py-24">
+        <div className="card text-center">
+          <Mail className="h-8 w-8 animate-pulse text-pg-700 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Processing your request…</h2>
+          <p className="text-gray-600 dark:text-gray-400">Please wait.</p>
         </div>
       </div>
     )
@@ -73,30 +51,22 @@ export function UnsubscribePage() {
 
   if (mode === 'form') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-postgres-50 to-blue-50 flex items-center justify-center">
-        <div className="max-w-md mx-auto px-4 w-full">
-          <div className="card">
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Unsubscribe</h2>
-              <p className="text-gray-600">
-                Enter your email and we'll send you a confirmation link to complete the unsubscribe.
-              </p>
-            </div>
-            <UnsubscribeForm
-              onSuccess={(message) => {
-                setResult({ success: true, message })
-                setMode('result')
-              }}
-              onError={(message) => {
-                setResult({ success: false, message })
-                setMode('result')
-              }}
-            />
-            <div className="mt-6 text-center">
-              <button onClick={handleBackToHome} className="text-sm text-postgres-600 hover:underline">
-                Back to Home
-              </button>
-            </div>
+      <div className="max-w-md mx-auto px-4 py-24 w-full">
+        <div className="card">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold mb-2">Unsubscribe</h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              Enter your email and we'll send you a confirmation link to complete the unsubscribe.
+            </p>
+          </div>
+          <UnsubscribeForm
+            onSuccess={(message) => { setResult({ success: true, message }); setMode('result') }}
+            onError={(message) => { setResult({ success: false, message }); setMode('result') }}
+          />
+          <div className="mt-6 text-center">
+            <button onClick={() => navigate('/')} className="text-sm text-pg-700 dark:text-accent-400 hover:underline">
+              Back to Home
+            </button>
           </div>
         </div>
       </div>
@@ -104,35 +74,24 @@ export function UnsubscribePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-postgres-50 to-blue-50 flex items-center justify-center">
-      <div className="max-w-md mx-auto px-4">
-        <div className="card text-center">
-          {result?.success ? (
-            <>
-              <div className="flex items-center justify-center mb-4">
-                <CheckCircle className="h-16 w-16 text-green-500" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Done</h2>
-              <p className="text-gray-600 mb-6">{result.message}</p>
-            </>
-          ) : (
-            <>
-              <div className="flex items-center justify-center mb-4">
-                <XCircle className="h-16 w-16 text-red-500" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                We couldn't complete that
-              </h2>
-              <p className="text-gray-600 mb-6">{result?.message}</p>
-            </>
-          )}
-
-          <div className="space-y-3">
-            <button onClick={handleBackToHome} className="w-full btn-primary">
-              Back to Home
-            </button>
-          </div>
-        </div>
+    <div className="max-w-md mx-auto px-4 py-24">
+      <div className="card text-center">
+        {result?.success ? (
+          <>
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-4">Done</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">{result.message}</p>
+          </>
+        ) : (
+          <>
+            <XCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold mb-4">We couldn't complete that</h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">{result?.message}</p>
+          </>
+        )}
+        <button onClick={() => navigate('/')} className="w-full btn-primary">
+          Back to Home
+        </button>
       </div>
     </div>
   )

@@ -1,0 +1,31 @@
+export function Logo({ className = 'h-8 w-8' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect width="32" height="32" rx="7" className="fill-pg-700" />
+      {/* Slonik-style front-facing elephant: domed head, flared side ears, tusks, center trunk */}
+      <circle cx="7.6" cy="13.4" r="4.6" fill="white" />
+      <circle cx="24.4" cy="13.4" r="4.6" fill="white" />
+      <ellipse cx="16" cy="13.4" rx="8.4" ry="8" fill="white" />
+      <path
+        d="M10.6 19.6 L9.5 22.3"
+        stroke="white"
+        strokeWidth="2.1"
+        strokeLinecap="round"
+      />
+      <path
+        d="M21.4 19.6 L22.5 22.3"
+        stroke="white"
+        strokeWidth="2.1"
+        strokeLinecap="round"
+      />
+      <path
+        d="M16 14.8 C16 19.4 16.1 21.6 15.5 23.4 C15 24.9 14 25.7 12.7 25.5"
+        stroke="white"
+        strokeWidth="3"
+        strokeLinecap="round"
+      />
+      <circle cx="12.8" cy="11.9" r="1.3" className="fill-pg-700" />
+      <circle cx="19.2" cy="11.9" r="1.3" className="fill-pg-700" />
+    </svg>
+  )
+}

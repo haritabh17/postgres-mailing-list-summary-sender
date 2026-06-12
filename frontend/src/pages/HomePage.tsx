@@ -1,24 +1,17 @@
 import { useState } from 'react'
-import { Database, Github } from 'lucide-react'
 import { SignupForm } from '../components/SignupForm'
 import { SuccessMessage } from '../components/SuccessMessage'
 import { ErrorMessage } from '../components/ErrorMessage'
-import { StatsCounter } from '../components/StatsCounter'
-import { SummariesList } from '../components/SummariesList'
+import { useStats } from '../hooks/useStats'
+import { useLatestSummary } from '../hooks/useLatestSummary'
+import { LatestDigestPreview } from '../components/LatestDigestPreview'
+import { RecentIssues } from '../components/RecentIssues'
 
 export function HomePage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-
-  const handleSuccess = (message: string) => {
-    setSuccessMessage(message)
-    setErrorMessage(null)
-  }
-
-  const handleError = (message: string) => {
-    setErrorMessage(message)
-    setSuccessMessage(null)
-  }
+  const { totalSubscribers, totalSummaries, isLoading: statsLoading } = useStats()
+  const { summary: latestSummary, isLoading: latestLoading } = useLatestSummary()
 
   const clearMessages = () => {
     setSuccessMessage(null)
@@ -26,107 +19,63 @@ export function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-postgres-50 to-blue-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="bg-postgres-600 p-2 rounded-lg">
-                <Database className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">PostgreSQL Hackers Digest</h1>
-                <p className="text-sm text-gray-500">AI-powered weekly summaries</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div>
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-white dark:bg-transparent border-b border-surface-border dark:border-transparent">
+        <div className="absolute inset-0 bg-grid-pattern dark:bg-grid-pattern-dark bg-grid opacity-50" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white dark:from-surface-dark to-transparent" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
+          <div className="grid lg:grid-cols-2 gap-12 items-start">
+            <div>
+              <p className="eyebrow mb-4">pgsql-hackers, distilled</p>
+              <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-gray-900 dark:text-white leading-tight mb-6">
+                600+ mailing list posts a week.{' '}
+                <span className="text-pg-700 dark:text-accent-400">The 10 most active discussions, summarized.</span>
+              </h1>
+              <p className="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-lg">
+                AI summaries of the threads the PostgreSQL community is talking about most,
+                every Friday in your inbox.
+              </p>
 
-      {/* Main Content */}
-      <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">
-            Never Miss Important PostgreSQL Hackers Discussions
-          </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Get AI-powered weekly summaries of the top discussions from the PostgreSQL 
-            hackers mailing list, delivered straight to your inbox.
-          </p>
-        </div>
-
-        {/* Single Column Layout: Subscribe section first, then Archive below */}
-        <div className="flex flex-col">
-          {/* Subscription Form */}
-          <div className="w-full max-w-md mx-auto mb-12">
-            <div className="card">
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  Subscribe to Weekly Summary
-                </h3>
-                <p className="text-gray-600">
-                  Join thousands of PostgreSQL developers who stay informed.
+              <div className="max-w-md">
+                {successMessage && <SuccessMessage message={successMessage} onClose={clearMessages} />}
+                {errorMessage && <ErrorMessage message={errorMessage} onClose={clearMessages} />}
+                <SignupForm
+                  onSuccess={(msg) => { setSuccessMessage(msg); setErrorMessage(null) }}
+                  onError={(msg) => { setErrorMessage(msg); setSuccessMessage(null) }}
+                  inline
+                />
+                <p className="mt-3 font-mono text-xs text-gray-500 dark:text-gray-500">
+                  {statsLoading ? (
+                    <span className="inline-block h-3.5 w-64 max-w-full rounded bg-gray-200 dark:bg-white/10 animate-pulse align-middle" />
+                  ) : (
+                    <>
+                      {totalSubscribers.toLocaleString()} subscribers · {totalSummaries.toLocaleString()} weekly issues · unsubscribe anytime
+                    </>
+                  )}
                 </p>
               </div>
-
-              {/* Messages */}
-              {successMessage && (
-                <SuccessMessage message={successMessage} onClose={clearMessages} />
-              )}
-              {errorMessage && (
-                <ErrorMessage message={errorMessage} onClose={clearMessages} />
-              )}
-
-              {/* Form */}
-              <SignupForm onSuccess={handleSuccess} onError={handleError} />
             </div>
 
-            {/* Subtle Stats */}
-            <StatsCounter />
-          </div>
-
-          {/* Archive Section: Always below subscribe section */}
-          <div className="w-full max-w-6xl mx-auto">
-            <SummariesList />
-          </div>
-        </div>
-
-      </main>
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="text-center text-gray-500 text-sm space-y-3">
-            <p>
-              This service is not affiliated with the PostgreSQL Global Development Group.
-              Summaries are generated using AI and may not capture all nuances of discussions.
-            </p>
-            <p className="text-gray-400">
-              Built by{' '}
-              <a
-                href="https://github.com/haritabh17"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                Haritabh Gupta
-              </a>
-              {' · '}
-              <a
-                href="https://github.com/haritabh17/postgres-mailing-list-summary-sender"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center space-x-1 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <Github className="h-3.5 w-3.5" />
-                <span>Source</span>
-              </a>
-            </p>
+            <div>
+              {latestLoading ? (
+                <div className="card animate-pulse h-64" />
+              ) : latestSummary ? (
+                <LatestDigestPreview summary={latestSummary} />
+              ) : (
+                <div className="card text-center text-gray-500 dark:text-gray-400 py-12">
+                  First weekly digest coming soon.
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </footer>
+      </section>
 
+      {/* Recent issues */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14">
+        <RecentIssues excludeId={latestSummary?.id} />
+      </section>
     </div>
   )
 }

@@ -1,65 +1,49 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
-
-interface TopDiscussion {
-  thread_id?: string;
-  subject: string;
-  post_count: number;
-  participants: number;
-  first_post_at: string;
-  last_post_at: string;
-  thread_url?: string;
-  redirect_slug?: string;
-  commitfest_tags?: { name: string; color: string | null }[];
-  ai_tags?: string[];
-  summary_brief?: string;
-  summary_detailed?: string;
-  summary_deep?: string;
-}
-
-interface WeeklySummary {
-  id: string;
-  week_start_date: string;
-  week_end_date: string;
-  summary_content: string;
-  top_discussions?: TopDiscussion[];
-  total_posts: number;
-  total_participants: number;
-  created_at: string;
-}
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import type { WeeklySummary } from '../lib/types'
 
 export function useSummary(id: string) {
-  const [summary, setSummary] = useState<WeeklySummary | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<WeeklySummary | null>(null)
+  const [adjacent, setAdjacent] = useState<{ prev: string | null; next: string | null }>({ prev: null, next: null })
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchSummary() {
+      if (!id) return
       try {
-        setIsLoading(true);
-        const { data, error } = await supabase
+        setIsLoading(true)
+        const { data, error: fetchError } = await supabase
           .from('weekly_summaries')
           .select('*')
           .eq('id', id)
-          .single();
+          .single()
 
-        if (error) {
-          throw error;
+        if (fetchError) throw fetchError
+        setSummary(data)
+
+        const { data: allSummaries } = await supabase
+          .from('weekly_summaries')
+          .select('id, week_start_date')
+          .order('week_start_date', { ascending: false })
+
+        if (allSummaries) {
+          const idx = allSummaries.findIndex((s) => s.id === id)
+          setAdjacent({
+            prev: idx > 0 ? allSummaries[idx - 1].id : null,
+            next: idx < allSummaries.length - 1 ? allSummaries[idx + 1].id : null,
+          })
         }
-
-        setSummary(data);
-      } catch (err: any) {
-        console.error('Error fetching summary:', err.message);
-        setError('Failed to load summary. Please try again later.');
+      } catch (err) {
+        console.error('Error fetching summary:', err)
+        setError('Failed to load summary. Please try again later.')
       } finally {
-        setIsLoading(false);
+        setIsLoading(false)
       }
     }
 
-    if (id) {
-      fetchSummary();
-    }
-  }, [id]);
+    fetchSummary()
+  }, [id])
 
-  return { summary, isLoading, error };
+  return { summary, adjacent, isLoading, error }
 }

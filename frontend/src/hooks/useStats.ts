@@ -1,19 +1,13 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-
-export interface Stats {
-  totalSubscribers: number
-  totalSummaries: number
-  isLoading: boolean
-  error: string | null
-}
+import type { PublicStats } from '../lib/types'
 
 export function useStats() {
-  const [stats, setStats] = useState<Stats>({
+  const [stats, setStats] = useState<PublicStats & { isLoading: boolean; error: string | null }>({
     totalSubscribers: 0,
     totalSummaries: 0,
     isLoading: true,
-    error: null
+    error: null,
   })
 
   useEffect(() => {
@@ -22,30 +16,22 @@ export function useStats() {
 
   const fetchStats = async () => {
     try {
-      setStats(prev => ({ ...prev, isLoading: true, error: null }))
-
-      // Use the database function to get stats efficiently
-      const { data, error } = await supabase
-        .rpc('get_public_stats')
-
-      if (error) {
-        throw new Error(`Failed to fetch stats: ${error.message}`)
-      }
-
+      setStats((prev) => ({ ...prev, isLoading: true, error: null }))
+      const { data, error } = await supabase.rpc('get_public_stats')
+      if (error) throw new Error(`Failed to fetch stats: ${error.message}`)
       const statsData = data?.[0] || { total_subscribers: 0, total_summaries: 0 }
-
       setStats({
         totalSubscribers: parseInt(statsData.total_subscribers) || 0,
         totalSummaries: parseInt(statsData.total_summaries) || 0,
         isLoading: false,
-        error: null
+        error: null,
       })
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error fetching stats:', error)
-      setStats(prev => ({
+      setStats((prev) => ({
         ...prev,
         isLoading: false,
-        error: error.message || 'Failed to load stats'
+        error: error instanceof Error ? error.message : 'Failed to load stats',
       }))
     }
   }

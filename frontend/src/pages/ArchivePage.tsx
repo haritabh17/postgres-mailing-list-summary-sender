@@ -1,160 +1,135 @@
-import { Link } from 'react-router-dom'
-import { ArrowLeft, Calendar, Users, FileText } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Calendar, Users, FileText, Loader2, Search, X } from 'lucide-react'
 import { useSummaries } from '../hooks/useSummaries'
+import { formatDate, formatDateWithOrdinal } from '../utils/dates'
+import { TagChip } from '../components/TagChip'
 
 export function ArchivePage() {
-  const { summaries, isLoading, error } = useSummaries()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tagFilter = searchParams.get('tag')
+  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '')
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+  const { summaries, isLoading, isLoadingMore, error, hasMore, loadMore } = useSummaries(tagFilter, searchQuery)
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    setSearchQuery(searchInput)
+    const params = new URLSearchParams(searchParams)
+    if (searchInput) params.set('q', searchInput)
+    else params.delete('q')
+    setSearchParams(params)
   }
 
-  const formatDateWithOrdinal = (dateString: string) => {
-    const date = new Date(dateString)
-    const day = date.getDate()
-    const ordinal = (day: number) => {
-      const s = ["th", "st", "nd", "rd"]
-      const v = day % 100
-      return day + (s[(v - 20) % 10] || s[v] || s[0])
-    }
-    const monthYear = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-    return `${ordinal(day)} ${monthYear}`
+  const clearTag = () => {
+    const params = new URLSearchParams(searchParams)
+    params.delete('tag')
+    setSearchParams(params)
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-postgres-50 to-blue-50 flex items-center justify-center">
-        <div className="max-w-md mx-auto px-4">
-          <div className="card text-center">
-            <div className="text-red-500 mb-4">
-              <FileText className="h-16 w-16 mx-auto" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Error Loading Archive
-            </h2>
-            <p className="text-gray-600 mb-6">
-              {error}
-            </p>
-            <Link to="/" className="btn-primary">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Home
-            </Link>
-          </div>
-        </div>
+      <div className="max-w-lg mx-auto px-4 py-24 text-center">
+        <FileText className="h-12 w-12 mx-auto text-red-500 mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Error loading archive</h2>
+        <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
+        <Link to="/" className="btn-primary">Back to home</Link>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-postgres-50 to-blue-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Link to="/" className="text-postgres-600 hover:text-postgres-700">
-                <ArrowLeft className="h-6 w-6" />
-              </Link>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">PostgreSQL Weekly Archive</h1>
-                <p className="text-sm text-gray-500">Browse all generated summaries</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Archive</h1>
+        <p className="text-gray-600 dark:text-gray-400">
+          Browse all weekly summaries of the PostgreSQL hackers mailing list.
+        </p>
+      </div>
 
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">
-            Weekly Summaries Archive
-          </h2>
-          <p className="text-gray-600">
-            Explore all the PostgreSQL mailing list summaries we've generated. Each summary covers 
-            a full week of discussions from the PostgreSQL hackers mailing list.
-          </p>
-        </div>
-
-        {isLoading ? (
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="card animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
-                <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-              </div>
-            ))}
+      {/* Search + tag filter */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <form onSubmit={handleSearch} className="flex gap-2 flex-1">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search summaries..."
+              className="input-field pl-10"
+            />
           </div>
-        ) : summaries.length === 0 ? (
-          <div className="card text-center">
-            <div className="text-gray-400 mb-4">
-              <FileText className="h-16 w-16 mx-auto" />
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              No Summaries Yet
-            </h3>
-            <p className="text-gray-600 mb-6">
-              We haven't generated any weekly summaries yet. Check back soon!
-            </p>
-            <Link to="/" className="btn-primary">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Home
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {summaries.map((summary) => (
-              <div key={summary.id} className="card hover:shadow-lg transition-shadow">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      Week of {formatDateWithOrdinal(summary.week_end_date)}
-                    </h3>
-                    <div className="flex items-center space-x-4 text-sm text-gray-500">
-                      <div className="flex items-center space-x-1">
-                        <FileText className="h-4 w-4" />
-                        <span>{summary.total_posts} posts</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Users className="h-4 w-4" />
-                        <span>{summary.total_participants} participants</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <Calendar className="h-4 w-4" />
-                        <span>Generated {formatDate(summary.created_at)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <Link
-                    to={`/summary/${summary.id}`}
-                    className="text-postgres-600 hover:text-postgres-700 font-medium text-sm inline-flex items-center transition-colors"
-                  >
-                    Read Full Summary →
-                  </Link>
-                </div>
-              </div>
-            ))}
+          <button type="submit" className="btn-primary">Search</button>
+        </form>
+        {tagFilter && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Filtered by:</span>
+            <TagChip tag={tagFilter} source="ai" clickable={false} />
+            <button onClick={clearTag} className="p-1 text-gray-400 hover:text-gray-600" aria-label="Clear filter">
+              <X className="h-4 w-4" />
+            </button>
           </div>
         )}
+      </div>
 
-        {/* Footer */}
-        <footer className="mt-16 bg-white rounded-lg shadow-sm p-6">
-          <div className="text-center text-gray-500 text-sm space-y-3">
-            <p>
-              This archive contains AI-generated summaries of PostgreSQL mailing list discussions.
-              Summaries may not capture all nuances of the original conversations.
-            </p>
+      {isLoading ? (
+        <div className="space-y-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="card animate-pulse h-28" />
+          ))}
+        </div>
+      ) : summaries.length === 0 ? (
+        <div className="card text-center py-12">
+          <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">No summaries found</h3>
+          <p className="text-gray-600 dark:text-gray-400">
+            {searchQuery || tagFilter ? 'Try a different search or clear filters.' : 'Check back soon!'}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-4">
+            {summaries.map((summary) => (
+              <Link key={summary.id} to={`/summary/${summary.id}`} className="card-hover block">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                      Week of {formatDateWithOrdinal(summary.week_end_date)}
+                    </h3>
+                    <div className="flex flex-wrap gap-4 text-sm text-gray-500 dark:text-gray-400">
+                      <span className="flex items-center gap-1"><FileText className="h-3.5 w-3.5" />{summary.total_posts} posts</span>
+                      <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />{summary.total_participants} participants</span>
+                      <span className="flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />Generated {formatDate(summary.created_at)}</span>
+                    </div>
+                    {summary.top_discussions?.[0] && (
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-1">
+                        Top: {summary.top_discussions[0].subject}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-pg-700 dark:text-accent-400 text-sm font-medium">Read →</span>
+                </div>
+              </Link>
+            ))}
           </div>
-        </footer>
-      </main>
+          {hasMore && (
+            <div className="text-center mt-8">
+              <button onClick={loadMore} disabled={isLoadingMore} className="btn-ghost">
+                {isLoadingMore ? (
+                  <span className="inline-flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </span>
+                ) : (
+                  'Show more'
+                )}
+              </button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
