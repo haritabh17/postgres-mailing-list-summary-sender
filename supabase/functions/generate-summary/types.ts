@@ -10,8 +10,11 @@ export interface TopDiscussion {
   participants: number
   first_post_at: string
   last_post_at: string
-  full_content?: any[]
+  full_content?: unknown[]
   commitfest_tags?: CommitfestTag[]
+  why_it_matters?: string
+  status?: string
+  key_people?: string[]
 }
 
 export interface WeeklySummary {

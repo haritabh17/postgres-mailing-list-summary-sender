@@ -1,21 +1,10 @@
 import { SHORT_LINK_DOMAIN } from './constants.ts'
 import { escapeHtmlTagsInText } from './html-safety.ts'
+import { formatDateWithOrdinal } from '../_shared/dates.ts'
 
 export function combineSummariesIntoWeekly(individualSummaries: any[], stats: any, weekStartDate: Date, weekEndDate: Date): string {
   console.log(`📝 INFO: Combining ${individualSummaries.length} individual summaries into weekly summary`)
 
-  // Format the date with ordinal suffix (1st, 2nd, 3rd, etc.)
-  const formatDateWithOrdinal = (date: Date): string => {
-    const day = date.getDate()
-    const ordinal = (day: number) => {
-      const s = ["th", "st", "nd", "rd"]
-      const v = day % 100
-      return day + (s[(v - 20) % 10] || s[v] || s[0])
-    }
-    return `${ordinal(day)} ${date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
-  }
-
-  // Use week end date (Sunday) from the database
   let weeklySummary = `# PostgreSQL Weekly Summary - Week of ${formatDateWithOrdinal(weekEndDate)}
 
 ## Overview

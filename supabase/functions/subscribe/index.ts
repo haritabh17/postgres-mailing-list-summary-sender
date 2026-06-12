@@ -191,7 +191,7 @@ function createConfirmationEmailContent(confirmationUrl: string, siteBase: strin
   </div>
 
   <p>Hi there!</p>
-  <p>You've subscribed (or re-subscribed) to receive weekly AI-powered summaries of the most important discussions from the PostgreSQL hackers mailing list.</p>
+  <p>You've subscribed (or re-subscribed) to receive weekly AI-powered summaries of the most active discussions from the PostgreSQL hackers mailing list.</p>
   <p><strong>Please confirm your subscription by clicking the button below:</strong></p>
 
   <div style="text-align: center; margin: 25px 0;">
@@ -204,8 +204,8 @@ function createConfirmationEmailContent(confirmationUrl: string, siteBase: strin
 
   <p><strong>What you'll get:</strong></p>
   <ul style="margin: 15px 0;">
-    <li>Weekly digest of top 10 PostgreSQL discussions</li>
-    <li>Delivered every Monday to your inbox</li>
+    <li>Weekly digest of the 10 most active PostgreSQL discussions</li>
+    <li>Delivered every Friday to your inbox</li>
     <li>Curated by AI to save you time</li>
   </ul>
 
