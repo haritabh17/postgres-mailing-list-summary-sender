@@ -7,8 +7,7 @@ import { getLastFriday } from './date-utils.ts'
 import { generateAISummary } from './orchestrator.ts'
 import { sendPipelineAlert } from '../_shared/pipeline-alert.ts'
 
-function getDiscussionGroupKey(thread: { thread_id?: string; subject?: string }): string {
-  if (thread.thread_id) return `tid:${thread.thread_id}`
+function getDiscussionGroupKey(thread: { subject?: string }): string {
   return `subj:${normalizeSubject(thread.subject || 'unknown')}`
 }
 
@@ -86,7 +85,8 @@ serve(async (req) => {
       )
     }
 
-    // Group threads by thread_id or normalized subject
+    // PostgreSQL.org archive URLs expose per-message IDs, not conversation IDs.
+    // Group by subject so replies collapse into the same discussion.
     const threadGroups = new Map<string, any[]>()
     mailThreads.forEach((thread) => {
       const key = getDiscussionGroupKey(thread)
