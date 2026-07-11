@@ -335,15 +335,12 @@ async function sendSummaryEmail(email: string, subject: string, htmlContent: str
 }
 
 async function createEmailContent(subscriber: Subscriber, summary: WeeklySummary): Promise<string> {
-  const weekStart = new Date(summary.week_start_date)
-  const weekEnd = new Date(summary.week_end_date)
-
-  // Convert markdown summary to HTML, with per-discussion "Show more" links if multi-level data exists
+  // Convert markdown summary to HTML, with per-discussion detail links if multi-level data exists
   const hasMultiLevel = summary.top_discussions?.some((d: any) => d.summary_brief || d.summary_detailed || d.summary_deep)
   let htmlSummary: string
 
   if (hasMultiLevel && summary.top_discussions) {
-    // Build custom HTML with brief summaries + "Show more" links
+    // Build custom HTML with brief summaries + links to the detailed web version
     htmlSummary = buildMultiLevelEmailHtml(summary)
   } else {
     htmlSummary = convertMarkdownToHtml(summary.summary_content)
@@ -354,6 +351,9 @@ async function createEmailContent(subscriber: Subscriber, summary: WeeklySummary
   const unsubscribeToken = await makeUnsubscribeToken(normalizedEmail)
   const unsubscribeUrl = `https://postgreshackersdigest.dev/unsubscribe?email=${encodeURIComponent(normalizedEmail)}&token=${unsubscribeToken}`
 
+  // Layout mirrors the website's light theme (frontend/tailwind.config.js pg
+  // palette). The multi-level path is fully inline-styled; the <style> block
+  // below only covers the markdown-fallback path, which has no inline styles.
   return `
 <!DOCTYPE html>
 <html>
@@ -362,249 +362,114 @@ async function createEmailContent(subscriber: Subscriber, summary: WeeklySummary
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PostgreSQL Weekly Summary</title>
   <style>
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-      line-height: 1.6; 
-      color: #1f2937; 
-      max-width: 896px; 
-      margin: 0 auto; 
-      padding: 20px; 
-      background: #f0f9ff; 
-    }
-    .summary-wrapper { 
-      background: white; 
-      border-radius: 8px; 
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-      overflow: hidden;
-    }
-    .summary-header {
-      background: linear-gradient(to right, #336791, #2d5a7a);
-      color: white;
-      padding: 32px;
-    }
-    .summary-header h2 {
-      color: white;
-      font-size: 24px;
-      font-weight: 700;
-      margin: 0 0 16px 0;
-    }
-    .summary-header .stats {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 24px;
-      color: #e0f2fe;
-      font-size: 14px;
-    }
-    .summary-content { 
-      padding: 32px; 
-    }
-    .summary-content h1 { 
-      color: #1e40af; 
-      font-size: 30px; 
-      font-weight: 700; 
-      margin-top: 0; 
-      margin-bottom: 24px; 
-    }
-    .summary-content h2 { 
-      color: #1e40af; 
-      font-size: 24px; 
-      font-weight: 600; 
-      margin-top: 32px; 
-      margin-bottom: 16px; 
-    }
-    .summary-content h3 { 
-      color: #374151; 
-      font-size: 20px; 
-      font-weight: 600; 
-      margin-top: 24px; 
-      margin-bottom: 12px; 
-    }
-    .summary-content h4 { 
-      color: #374151; 
-      font-size: 18px; 
-      font-weight: 600; 
-      margin-top: 20px; 
-      margin-bottom: 10px; 
-    }
-    .summary-content p { 
-      color: #374151; 
-      line-height: 1.75; 
-      margin-bottom: 16px; 
-      text-align: justify;
-    }
-    .summary-content strong { 
-      color: #111827; 
-      font-weight: 600; 
-    }
-    .summary-content ul, .summary-content ol { 
-      margin: 16px 0; 
-      padding-left: 24px; 
-    }
-    .summary-content li { 
-      color: #374151; 
-      margin: 8px 0; 
-    }
-    .summary-content a { 
-      color: #336791; 
-      text-decoration: none; 
-    }
-    .summary-content a:hover { 
-      text-decoration: underline; 
-    }
-    .summary-content blockquote { 
-      border-left: 4px solid #93c5fd; 
-      padding-left: 16px; 
-      margin: 20px 0; 
-      font-style: italic; 
-      background: #f0f9ff; 
-      padding: 12px 16px; 
-      border-radius: 4px; 
-      color: #4b5563;
-    }
-    .summary-content code { 
-      background: #f0f9ff; 
-      color: #1e40af; 
-      padding: 2px 8px; 
-      border-radius: 4px; 
-      font-family: 'Monaco', 'Menlo', 'Courier New', monospace; 
-      font-size: 0.875em; 
-    }
-    .summary-content pre { 
-      background: #111827; 
-      color: #e5e7eb; 
-      padding: 16px; 
-      border-radius: 8px; 
-      overflow-x: auto; 
-      margin: 20px 0; 
-    }
-    .summary-content pre code { 
-      background: none; 
-      padding: 0; 
-      color: inherit; 
-    }
-    .summary-content table { 
-      width: 100%; 
-      border-collapse: collapse; 
-      margin: 20px 0; 
-    }
-    .summary-content th, .summary-content td { 
-      border: 1px solid #d1d5db; 
-      padding: 12px; 
-      text-align: left; 
-    }
-    .summary-content th { 
-      background: #f3f4f6; 
-      font-weight: 600; 
-      color: #111827; 
-    }
-    .summary-content hr { 
-      border: none; 
-      border-top: 1px solid #d1d5db; 
-      margin: 32px 0; 
-    }
-    .tags-container {
-      margin: 16px 0;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0;
-      font-size: 14px;
-    }
-    .tags-container strong {
-      margin-right: 8px;
-      color: #374151;
-    }
-    .tag-separator {
-      margin: 0 4px;
-    }
-    .tag {
-      margin-right: 0;
-    }
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 500;
-      border: 1px solid;
-      position: relative;
-    }
-    .tag[data-tag-source="commitfest"] {
-      border-style: solid;
-    }
-    .tag[data-tag-source="commitfest"]::after {
-      content: "●";
-      font-size: 8px;
-      margin-left: 6px;
-      opacity: 0.6;
-    }
-    .tag[data-tag-source="ai"] {
-      background-color: #f3f4f6;
-      color: #1f2937;
-      border-color: #d1d5db;
-      border-style: dashed;
-    }
-    .tag[data-tag-source="ai"]::after {
-      content: "◇";
-      font-size: 8px;
-      margin-left: 6px;
-      opacity: 0.5;
-      color: #6b7280;
-    }
-    .footer { 
-      background: #f9fafb; 
-      padding: 24px 32px; 
-      border-top: 1px solid #e5e7eb;
-      text-align: center; 
-      font-size: 12px; 
-      color: #6b7280; 
-    }
-    .footer p {
-      margin: 8px 0;
-      text-align: center;
-    }
-    .unsubscribe { 
-      margin-top: 16px; 
-    }
-    .unsubscribe a { 
-      color: #336791; 
-      text-decoration: none; 
-    }
-    .unsubscribe a:hover {
-      text-decoration: underline;
-    }
+    body { margin: 0; padding: 24px 12px; background: #f0f4f8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; }
+    .summary-content h1 { color: #102a43; font-size: 24px; font-weight: 700; margin: 0 0 16px; }
+    .summary-content h2 { color: #102a43; font-size: 19px; font-weight: 600; margin: 28px 0 14px; }
+    .summary-content h3 { color: #102a43; font-size: 16.5px; font-weight: 600; margin: 24px 0 10px; }
+    .summary-content h4 { color: #243b53; font-size: 15px; font-weight: 600; margin: 20px 0 8px; }
+    .summary-content p { color: #334155; font-size: 15px; line-height: 1.7; margin: 0 0 14px; }
+    .summary-content strong { color: #102a43; font-weight: 600; }
+    .summary-content ul, .summary-content ol { margin: 0 0 14px; padding-left: 24px; }
+    .summary-content li { color: #334155; font-size: 15px; line-height: 1.6; margin: 6px 0; }
+    .summary-content a { color: #336791; text-decoration: none; }
+    .summary-content a:hover { text-decoration: underline; }
+    .summary-content blockquote { border-left: 4px solid #bcccdc; margin: 16px 0; padding: 10px 16px; background: #f0f4f8; border-radius: 4px; font-style: italic; color: #486581; }
+    .summary-content code { background: #f0f4f8; color: #243b53; padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, 'Menlo', 'Courier New', monospace; font-size: 13px; }
+    .summary-content pre { background: #102a43; color: #d9e2ec; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 16px 0; }
+    .summary-content pre code { background: none; padding: 0; color: inherit; }
+    .summary-content table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    .summary-content th, .summary-content td { border: 1px solid #d9e2ec; padding: 10px; text-align: left; font-size: 14px; color: #334155; }
+    .summary-content th { background: #f0f4f8; font-weight: 600; color: #102a43; }
+    .summary-content hr { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+    .tags-container { margin: 12px 0; font-size: 13px; color: #334155; }
+    .tag { display: inline-block; padding: 2px 10px; border-radius: 6px; font-size: 12px; font-weight: 500; border: 1px solid #bcccdc; background: #f0f4f8; color: #243b53; }
   </style>
 </head>
 <body>
-  <div class="summary-wrapper">
-    <div class="summary-header">
-      <h2>Week of ${formatDateWithOrdinal(summary.week_end_date)}</h2>
-      <div class="stats">
-        <span>${summary.total_posts} posts</span>
-        <span>${summary.total_participants} participants</span>
+  <table role="presentation" width="640" align="center" cellpadding="0" cellspacing="0" style="max-width: 640px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;">
+    <tr><td style="padding: 28px 32px 0;">
+      <p style="margin: 0 0 4px; font-family: ui-monospace, 'Menlo', monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #336791;">PostgreSQL Hackers Digest</p>
+      <h1 style="margin: 0 0 6px; font-size: 26px; line-height: 1.2; color: #102a43;">Week of ${formatDateWithOrdinal(summary.week_end_date)}</h1>
+      <p style="margin: 0 0 20px; font-size: 13.5px; color: #627d98;">${summary.total_posts} posts &nbsp;&middot;&nbsp; ${summary.total_participants} participants &nbsp;&middot;&nbsp; Generated ${formatDate(summary.created_at)}</p>
+    </td></tr>
+    <tr><td style="padding: 0 32px 24px;">
+      <div class="summary-content">
+        ${htmlSummary}
       </div>
-    </div>
-    <div class="summary-content">
-      ${htmlSummary}
-    </div>
-    <div class="footer">
-      <p>This summary was generated using AI and may not capture all nuances of the original discussions.</p>
-      <p>Source: PostgreSQL Hackers Mailing List</p>
-      <div class="unsubscribe">
-        <a href="${unsubscribeUrl}">Unsubscribe</a> |
-        <a href="https://postgreshackersdigest.dev">Manage Subscription</a>
-      </div>
-    </div>
-  </div>
+    </td></tr>
+    <tr><td style="background: #f8fafc; border-top: 1px solid #e2e8f0; border-radius: 0 0 12px 12px; padding: 18px 32px;">
+      <p style="margin: 0 0 4px; font-size: 12px; color: #829ab1; text-align: center;">This summary was generated using AI &middot; Source: PostgreSQL Hackers Mailing List</p>
+      <p style="margin: 0; font-size: 12px; text-align: center;">
+        <a href="${unsubscribeUrl}" style="color: #336791;">Unsubscribe</a> &nbsp;&middot;&nbsp;
+        <a href="https://postgreshackersdigest.dev" style="color: #336791;">Manage subscription</a> &nbsp;&middot;&nbsp;
+        <a href="https://www.postgreshackersdigest.dev/summary/${summary.id}" style="color: #336791;">Read on the web</a>
+      </p>
+    </td></tr>
+  </table>
 </body>
 </html>
   `
 }
 
+// Status badge colors mirror the website's StatusBadge component (light theme).
+const STATUS_BADGES: Record<string, { label: string; fg: string; bg: string; border: string }> = {
+  proposal: { label: 'Proposal', fg: '#1e40af', bg: '#dbeafe', border: '#bfdbfe' },
+  patch_review: { label: 'Patch Review', fg: '#92400e', bg: '#fef3c7', border: '#fde68a' },
+  committed: { label: 'Committed', fg: '#166534', bg: '#dcfce7', border: '#bbf7d0' },
+  debate: { label: 'Debate', fg: '#6b21a8', bg: '#f3e8ff', border: '#e9d5ff' },
+}
+
+function statusBadgeHtml(status?: string): string {
+  const badge = status ? STATUS_BADGES[status] : undefined
+  if (!badge) return ''
+  return ` <span style="display: inline-block; font-size: 11px; font-weight: 600; color: ${badge.fg}; background: ${badge.bg}; border: 1px solid ${badge.border}; border-radius: 99px; padding: 1px 9px; vertical-align: 2px;">${badge.label}</span>`
+}
+
+// Same brightness heuristic as the website's TagChip: readable text on the
+// commitfest color, light-blue fallback when the tag has no color.
+function commitfestChipHtml(tag: any): string {
+  let bg = '#e0f2fe'
+  let fg = '#0369a1'
+  if (tag.color) {
+    const hex = String(tag.color).replace('#', '')
+    const r = parseInt(hex.substring(0, 2), 16)
+    const g = parseInt(hex.substring(2, 4), 16)
+    const b = parseInt(hex.substring(4, 6), 16)
+    bg = tag.color
+    fg = (r * 299 + g * 587 + b * 114) / 1000 > 128 ? '#000000' : '#ffffff'
+  }
+  return `<span style="display: inline-block; font-size: 12px; font-weight: 500; color: ${fg}; background: ${bg}; border-radius: 6px; padding: 3px 10px;">${escapeHtmlForEmail(tag.name)}</span>`
+}
+
+function aiChipHtml(tag: string): string {
+  return `<span style="display: inline-block; font-size: 12px; font-weight: 500; color: #243b53; background: #f0f4f8; border: 1px solid #bcccdc; border-radius: 6px; padding: 2px 10px;">${escapeHtmlForEmail(tag)}</span>`
+}
+
+// Same as the website's dedupeAiTags: AI tags often repeat commitfest tag
+// names; drop duplicates case-insensitively.
+function dedupeAiTags(commitfestTags: any[] | undefined, aiTags: string[] | undefined): string[] {
+  const seen = new Set((commitfestTags || []).map((t) => String(t.name).trim().toLowerCase()))
+  const result: string[] = []
+  for (const tag of aiTags || []) {
+    const key = tag.trim().toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    result.push(tag)
+  }
+  return result
+}
+
+// Escape, then render `backticks` as styled code — same treatment as the site.
+function briefSummaryHtml(text: string): string {
+  return escapeHtmlForEmail(text).replace(
+    /`([^`]+)`/g,
+    '<code style="font-family: ui-monospace, \'Menlo\', monospace; font-size: 13px; background: #f0f4f8; color: #243b53; border-radius: 4px; padding: 1px 5px;">$1</code>'
+  )
+}
+
 function buildMultiLevelEmailHtml(summary: WeeklySummary): string {
   const discussions = summary.top_discussions || []
-  
+
   // Extract overview from summary_content (everything before "## Top Discussions")
   let overview = ''
   const topDiscIdx = summary.summary_content.indexOf('## Top Discussions')
@@ -613,48 +478,41 @@ function buildMultiLevelEmailHtml(summary: WeeklySummary): string {
     // Remove H1 title and ## Overview heading
     overview = overview.replace(/^#\s+.*$/m, '').replace(/^##\s+Overview\s*/m, '').trim()
   }
-  
+
   let html = ''
   if (overview) {
-    html += `<h2>Overview</h2>\n${convertMarkdownToHtml(overview)}\n`
+    html += `${convertMarkdownToHtml(overview)}\n`
   }
-  html += `<h2>Top Discussions</h2>\n`
-  
+  html += `<h2 style="margin: 0 0 18px; font-size: 19px; color: #102a43;">This week's most active discussions</h2>\n`
+
   discussions.forEach((disc: any, index: number) => {
     const num = index + 1
-    const briefSummary = disc.summary_brief || ''
-    
-    html += `<h3>${num}. ${escapeHtmlForEmail(disc.subject)}</h3>\n`
-    html += `<p><strong>Posts</strong>: ${disc.post_count} | <strong>Participants</strong>: ${disc.participants} | <strong>Duration</strong>: ${formatDate(disc.first_post_at)} - ${formatDate(disc.last_post_at)}</p>\n`
-    
-    if (disc.thread_url) {
-      html += `<p><strong>Reference Link</strong>: <a href="${disc.thread_url}" target="_blank">View Thread</a></p>\n`
+
+    if (index > 0) {
+      html += `<hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">\n`
     }
-    
-    // Commitfest tags
-    if (disc.commitfest_tags && disc.commitfest_tags.length > 0) {
-      const tagsHtml = disc.commitfest_tags.map((tag: any) => {
-        const style = tag.color ? `background-color: ${tag.color}; padding: 4px 10px; border-radius: 6px; font-size: 13px;` : 'background-color: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 6px; font-size: 13px;'
-        return `<span style="${style}">${escapeHtmlForEmail(tag.name)}</span>`
-      }).join(' ')
-      html += `<p><strong>Commitfest Tags:</strong> ${tagsHtml}</p>\n`
+
+    html += `<h3 style="margin: 0 0 10px; font-size: 16.5px; line-height: 1.35; color: #102a43;">${num}. ${escapeHtmlForEmail(disc.subject)}${statusBadgeHtml(disc.status)}</h3>\n`
+
+    const threadLink = disc.thread_url
+      ? ` &nbsp;&middot;&nbsp; <a href="${disc.thread_url}" target="_blank" rel="noopener noreferrer" style="color: #336791; text-decoration: none; font-weight: 500;">View thread &#8599;</a>`
+      : ''
+    html += `<p style="margin: 0 0 12px; font-size: 13px; color: #627d98;"><strong style="color: #334155;">Posts</strong>: ${disc.post_count} &nbsp; <strong style="color: #334155;">Participants</strong>: ${disc.participants}${threadLink}</p>\n`
+
+    const chips = [
+      ...(disc.commitfest_tags || []).map(commitfestChipHtml),
+      ...dedupeAiTags(disc.commitfest_tags, disc.ai_tags).map(aiChipHtml),
+    ]
+    if (chips.length > 0) {
+      html += `<p style="margin: 0 0 14px;">${chips.join('&nbsp; ')}</p>\n`
     }
-    
-    // AI tags
-    if (disc.ai_tags && disc.ai_tags.length > 0) {
-      const tagsHtml = disc.ai_tags.map((tag: string) => {
-        return `<span style="background-color: #f3f4f6; color: #1f2937; padding: 4px 10px; border-radius: 6px; font-size: 13px; border: 1px dashed #d1d5db;">${escapeHtmlForEmail(tag)}</span>`
-      }).join(' ')
-      html += `<p><strong>AI-Generated Discussion Tags:</strong> ${tagsHtml}</p>\n`
-    }
-    
-    html += `<p>${escapeHtmlForEmail(briefSummary)}</p>\n`
+
+    html += `<p style="margin: 0 0 14px; font-size: 15px; line-height: 1.7; color: #334155;">${briefSummaryHtml(disc.summary_brief || '')}</p>\n`
+
     const discShareUrl = `https://www.postgreshackersdigest.dev/summary/${summary.id}?expand=${num}#discussion-${num}`
-    const discTweetText = `${disc.subject} — this week on pgsql-hackers`
-    html += `<p><a href="${discShareUrl}" style="color: #336791; font-weight: 600;">Show more</a> &nbsp;&middot;&nbsp; <a href="${discShareUrl}" style="color: #9ca3af; text-decoration: none; font-size: 13px;">Share</a></p>\n`
-    html += `<hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">\n`
+    html += `<p style="margin: 0; font-size: 13.5px;"><a href="${discShareUrl}" style="display: inline-block; color: #336791; font-weight: 600; text-decoration: none; border: 1px solid #bcccdc; border-radius: 8px; padding: 5px 14px;">Read the detailed version &rarr;</a> &nbsp;&nbsp;<a href="${discShareUrl}" style="color: #829ab1; text-decoration: none;">Share</a></p>\n`
   })
-  
+
   return html
 }
 
